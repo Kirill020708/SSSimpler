@@ -319,6 +319,7 @@ struct NNUEevaluator {
 
         const vec zero = setzero();
         const vec q = set1_16(Q);
+        const vec q32 = set1_32(Q);
         const vec qq = set1_32(Q * Q);
         const vec ones = set1_16(1);
         const vec zerosm = set1_16(-1);
@@ -351,14 +352,14 @@ struct NNUEevaluator {
             L2_0 = srai32(L2_0, 8);
             L2_0 = add32(L2_0, load((vec *)&b1[bucket][0]));
             auto L2_0c = max32(L2_0, zero);
-            L2_0c = min32(L2_0c, q);
+            L2_0c = min32(L2_0c, q32);
             L2_0 = mullo32(L2_0, L2_0);
             L2_0 = min32(L2_0, qq);
 
             L2_1 = srai32(L2_1, 8);
             L2_1 = add32(L2_1, load((vec *)&b1[bucket][hl2Size / 2]));
             auto L2_1c = max32(L2_1, zero);
-            L2_1c = min32(L2_1c, q);
+            L2_1c = min32(L2_1c, q32);
             L2_1 = mullo32(L2_1, L2_1);
             L2_1 = min32(L2_1, qq);
 
