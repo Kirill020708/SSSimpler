@@ -324,8 +324,6 @@ struct NNUEevaluator {
         const vec ones = set1_16(1);
         const vec zerosm = set1_16(-1);
 
-        vec L2_0 = setzero();
-        vec L2_1 = setzero();
         alignas(64) uint8_t activatedFt[hl1Size];
 
         const auto stm_acc = color == WHITE ? &hlSumW[ply][0] : &hlSumB[ply][0];
@@ -338,6 +336,30 @@ struct NNUEevaluator {
 
         alignas(64) int hl2Activations[hl2Size * 2];
 
+        #ifdef __AVX512F__
+
+            vec L2 = setzero();
+
+            for (int i = 0; i < hl1Size / 4; i++) {
+                vec wg = load((const vec *)&w1[bucket][i][0]);
+
+                L2 = _mm512_dpbusd_epi32(L2, set1_32(packedFt[i]), wg);
+            }
+
+            L2 = srai32(L2, 8);
+            L2 = add32(L2, load((vec *)&b1[bucket][0]));
+            auto L2c = max32(L2c, zero);
+            L2c = min32(L2c, q32);
+            L2 = mullo32(L2, L2);
+            L2 = min32(L2, qq);
+
+            store((vec *)&hl2Activations[0], slli32(L2c, 6));
+            store((vec *)&hl2Activations[hl2Size], L2);
+
+        #elif defined(__AVX2__)
+
+            vec L2_0 = setzero();
+            vec L2_1 = setzero();
 
             for (int i = 0; i < hl1Size / 4; i += 2) {
                 vec w10 = load((const vec *)&w1[bucket][i][0]);
@@ -367,6 +389,8 @@ struct NNUEevaluator {
             store((vec *)&hl2Activations[hl2Size / 2], slli32(L2_1c, 6));
             store((vec *)&hl2Activations[hl2Size], L2_0);
             store((vec *)&hl2Activations[hl2Size + hl2Size / 2], L2_1);
+
+        #endif
 
         alignas(64) int hl3Layer[hl3Size];
         memset(hl3Layer, 0, sizeof(hl3Layer));
