@@ -352,7 +352,7 @@ struct NNUEevaluator {
 
             L2 = srai32(L2, 8);
             L2 = add32(L2, load((vec *)&b1[bucket][0]));
-            auto L2c = max32(L2c, zero);
+            auto L2c = max32(L2, zero);
             L2c = min32(L2c, q32);
             L2 = mullo32(L2, L2);
             L2 = min32(L2, qq);
