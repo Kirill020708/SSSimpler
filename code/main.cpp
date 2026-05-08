@@ -54,7 +54,7 @@ string squareToString(int square) {
 int main(int argc, char *argv[]) {
 
     #ifndef __AVX512F__
-    return 0;
+    shadjkhasjkdhkajshdkas
     #endif
 
 	initLmrTable();
