@@ -260,6 +260,8 @@ struct NNUEevaluator {
         }
     }
 
+#ifndef __AVX512F__
+#ifdef __AVX2__
     inline vec maddubs(vec u, vec i) {
         return _mm256_maddubs_epi16(u, i);
     }
@@ -274,6 +276,8 @@ struct NNUEevaluator {
         vec partial1 = maddubs(set1_32(packed1), weights1);
         return add32(sum, maddwd(add16(partial0, partial1), ones));
     }
+#endif
+#endif
 
     void printAccum() {
         for (ll i = 0; i < hl1Size; i++)
