@@ -9,6 +9,7 @@
 
 #endif /* DECLARS */
 
+#include <array>
 #include "simd.h"
 
 #define INCBIN_SILENCE_BITCODE_WARNING
@@ -111,6 +112,19 @@ struct alignas(64) SmallBoard {
                 inputBucketBoard[BLACK][blackKingPos]};
     }
 };
+
+/*
+static constexpr std::array<std::array<uint16_t, 8>, 256> makeNzTable() {
+    std::array<std::array<uint16_t, 8>, 256> t{};
+    for (int b = 0; b < 256; b++) {
+        int n = 0;
+        for (int i = 0; i < 8; i++)
+            if (b & (1 << i)) t[b][n++] = i;
+    }
+    return t;
+}
+static constexpr auto NZ_TABLE = makeNzTable();
+*/
 
 struct NNUEevaluator {
 
@@ -260,20 +274,33 @@ struct NNUEevaluator {
         }
     }
 
-    inline vec maddubs(vec u, vec i) {
-        return _mm256_maddubs_epi16(u, i);
-    }
-
-    inline vec maddwd(vec a, vec b) {
-        return _mm256_madd_epi16(a, b);
-    }
-
+#if defined(__AVX2__) || defined(__AVX512F__)
     inline vec dpbusdx2(vec sum, uint32_t packed0, vec weights0, uint32_t packed1, vec weights1,
                             vec ones) {
-        vec partial0 = maddubs(set1_32(packed0), weights0);
-        vec partial1 = maddubs(set1_32(packed1), weights1);
-        return add32(sum, maddwd(add16(partial0, partial1), ones));
+        vec partial0 = maddubs16(set1_32(packed0), weights0);
+        vec partial1 = maddubs16(set1_32(packed1), weights1);
+        return add32(sum, maddwd16(add16(partial0, partial1), ones));
     }
+#endif
+
+    /*
+    inline int findNonZeroIndices(const uint32_t *packedFt, uint16_t *indices) {
+        int count = 0;
+        constexpr int elems = vecsize / i32s;
+        constexpr int bytes = elems / 8;
+        for (int i = 0; i < hl1Size / 4; i += elems) {
+            unsigned mask = cmpneq32_mask(load((const vec *)(packedFt + i)), setzero());
+            for (int b = 0; b < bytes; b++) {
+                uint8_t byte = (mask >> (8 * b)) & 0xFF;
+                __m128i lut  = _mm_loadu_si128((const __m128i *)NZ_TABLE[byte].data());
+                __m128i base = _mm_set1_epi16((short)(i + b * 8));
+                _mm_storeu_si128((__m128i *)(indices + count), _mm_add_epi16(lut, base));
+                count += __builtin_popcount(byte);
+            }
+        }
+        return count;
+    }
+    */
 
     void printAccum() {
         for (ll i = 0; i < hl1Size; i++)
@@ -324,8 +351,6 @@ struct NNUEevaluator {
         const vec ones = set1_16(1);
         const vec zerosm = set1_16(-1);
 
-        vec L2_0 = setzero();
-        vec L2_1 = setzero();
         alignas(64) uint8_t activatedFt[hl1Size];
 
         const auto stm_acc = color == WHITE ? &hlSumW[ply][0] : &hlSumB[ply][0];
@@ -338,35 +363,79 @@ struct NNUEevaluator {
 
         alignas(64) int hl2Activations[hl2Size * 2];
 
+        // number of vectors needed to store the hl2Size values
+        constexpr int L2_VECS = hl2Size * i32s / vecsize;
+        // to fit the 16 outputs we need 1 vector on avx512, 2 on avx2
+        constexpr int L2_UNROLL = 4;
 
-            for (int i = 0; i < hl1Size / 4; i += 2) {
-                vec w10 = load((const vec *)&w1[bucket][i][0]);
-                vec w11 = load((const vec *)&w1[bucket][i + 1][0]);
-                vec w10sq = load((const vec *)&w1[bucket][i][2 * hl2Size]);
-                vec w11sq = load((const vec *)&w1[bucket][i + 1][2 * hl2Size]);
+        vec accum[L2_VECS][L2_UNROLL];
+        for (int v = 0; v < L2_VECS; v++)
+            for (int u = 0; u < L2_UNROLL; u++)
+                accum[v][u] = setzero();
 
-                L2_0 = dpbusdx2(L2_0, packedFt[i], w10, packedFt[i + 1], w11, ones);
-                L2_1 = dpbusdx2(L2_1, packedFt[i], w10sq, packedFt[i + 1], w11sq, ones);
+        /*
+        alignas(64) uint16_t nzIndices[hl1Size / 4 + 8];
+        int nzCount = findNonZeroIndices(packedFt, nzIndices);
+
+        int nzi = 0;
+        for (; nzi + 2 * L2_UNROLL <= nzCount; nzi += 2 * L2_UNROLL) {
+            for (int u = 0; u < L2_UNROLL; u++) {
+                const uint32_t ft1 = packedFt[nzIndices[nzi + 2 * u]];
+                const uint32_t ft2 = packedFt[nzIndices[nzi + 2 * u + 1]];
+
+                for (int v = 0; v < L2_VECS; v++) {
+                    const vec w1_v = load((const vec *)&w1[bucket][nzIndices[nzi + 2 * u]][v * (vecsize / i8s)]);
+                    const vec w2_v = load((const vec *)&w1[bucket][nzIndices[nzi + 2 * u + 1]][v * (vecsize / i8s)]);
+                    accum[v][u] = dpbusdx2(accum[v][u], ft1, w1_v, ft2, w2_v, ones);
+                }
             }
+        }
 
-            L2_0 = srai32(L2_0, 8);
-            L2_0 = add32(L2_0, load((vec *)&b1[bucket][0]));
-            auto L2_0c = max32(L2_0, zero);
-            L2_0c = min32(L2_0c, q32);
-            L2_0 = mullo32(L2_0, L2_0);
-            L2_0 = min32(L2_0, qq);
+        for (; nzi < nzCount; nzi++) {
+            const uint32_t ft = packedFt[nzIndices[nzi]];
+            for (int v = 0; v < L2_VECS; v++) {
+                const vec w_v = load((const vec *)&w1[bucket][nzIndices[nzi]][v * (vecsize / i8s)]);
+                const vec partial = maddubs16(set1_32(ft), w_v);
+                accum[v][0] = add32(accum[v][0], maddwd16(partial, ones));
+            }
+        }
+        */
 
-            L2_1 = srai32(L2_1, 8);
-            L2_1 = add32(L2_1, load((vec *)&b1[bucket][hl2Size / 2]));
-            auto L2_1c = max32(L2_1, zero);
-            L2_1c = min32(L2_1c, q32);
-            L2_1 = mullo32(L2_1, L2_1);
-            L2_1 = min32(L2_1, qq);
+        int i = 0;
+        for (; i + 2 * L2_UNROLL <= hl1Size / 4; i += 2 * L2_UNROLL) {
+            for (int u = 0; u < L2_UNROLL; u++) {
+                const uint32_t ft1 = packedFt[i + 2 * u];
+                const uint32_t ft2 = packedFt[i + 2 * u + 1];
 
-            store((vec *)&hl2Activations[0], slli32(L2_0c, 6));
-            store((vec *)&hl2Activations[hl2Size / 2], slli32(L2_1c, 6));
-            store((vec *)&hl2Activations[hl2Size], L2_0);
-            store((vec *)&hl2Activations[hl2Size + hl2Size / 2], L2_1);
+                for (int v = 0; v < L2_VECS; v++) {
+                    const vec w1_v = load((const vec *)&w1[bucket][i + 2 * u][v * (vecsize / i8s)]);
+                    const vec w2_v = load((const vec *)&w1[bucket][i + 2 * u + 1][v * (vecsize / i8s)]);
+                    accum[v][u] = dpbusdx2(accum[v][u], ft1, w1_v, ft2, w2_v, ones);
+                }
+            }
+        }
+
+        for (; i < hl1Size / 4; i++) {
+            const uint32_t ft = packedFt[i];
+            for (int v = 0; v < L2_VECS; v++) {
+                const vec w_v = load((const vec *)&w1[bucket][i][v * (vecsize / i8s)]);
+                const vec partial = maddubs16(set1_32(ft), w_v);
+                accum[v][0] = add32(accum[v][0], maddwd16(partial, ones));
+            }
+        }
+
+        for (int v = 0; v < L2_VECS; v++) {
+            vec L2 = setzero();
+            for (int u = 0; u < L2_UNROLL; u++) L2 = add32(L2, accum[v][u]);
+            L2 = srai32(L2, 8);
+            L2 = add32(L2, load((const vec *)&b1[bucket][v * (vecsize / i32s)]));
+            auto L2c = max32(L2, zero);
+            L2c = min32(L2c, q32);
+            L2 = mullo32(L2, L2);
+            L2 = min32(L2, qq);
+            store((vec *)&hl2Activations[v * (vecsize / i32s)], slli32(L2c, 6));
+            store((vec *)&hl2Activations[hl2Size + v * (vecsize / i32s)], L2);
+        }
 
         alignas(64) int hl3Layer[hl3Size];
         memset(hl3Layer, 0, sizeof(hl3Layer));
