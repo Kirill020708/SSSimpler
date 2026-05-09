@@ -359,9 +359,6 @@ struct NNUEevaluator {
 
         alignas(64) int hl2Activations[hl2Size * 2];
 
-        alignas(64) uint16_t nzIndices[hl1Size / 4 + 8];
-        int nzCount = findNonZeroIndices(packedFt, nzIndices);
-
         // number of vectors needed to store the hl2Size values
         constexpr int L2_VECS = hl2Size * i32s / vecsize;
         // to fit the 16 outputs we need 1 vector on avx512, 2 on avx2
@@ -372,25 +369,25 @@ struct NNUEevaluator {
             for (int u = 0; u < L2_UNROLL; u++)
                 accum[v][u] = setzero();
 
-        int nzi = 0;
-        for (; nzi + 2 * L2_UNROLL <= nzCount; nzi += 2 * L2_UNROLL) {
+        int i = 0;
+        for (; i + 2 * L2_UNROLL <= hl1Size / 4; i += 2 * L2_UNROLL) {
             for (int u = 0; u < L2_UNROLL; u++) {
-                uint32_t ft1 = packedFt[nzIndices[nzi + 2 * u]];
-                uint32_t ft2 = packedFt[nzIndices[nzi + 2 * u + 1]];
+                const uint32_t ft1 = packedFt[i + 2 * u];
+                const uint32_t ft2 = packedFt[i + 2 * u + 1];
 
                 for (int v = 0; v < L2_VECS; v++) {
-                    vec w1_v = load((const vec *)&w1[bucket][nzIndices[nzi + 2 * u]][v * (vecsize / i8s)]);
-                    vec w2_v = load((const vec *)&w1[bucket][nzIndices[nzi + 2 * u + 1]][v * (vecsize / i8s)]);
+                    const vec w1_v = load((const vec *)&w1[bucket][i + 2 * u][v * (vecsize / i8s)]);
+                    const vec w2_v = load((const vec *)&w1[bucket][i + 2 * u + 1][v * (vecsize / i8s)]);
                     accum[v][u] = dpbusdx2(accum[v][u], ft1, w1_v, ft2, w2_v, ones);
                 }
             }
         }
 
-        for (; nzi < nzCount; nzi++) {
-            uint32_t ft = packedFt[nzIndices[nzi]];
+        for (; i < hl1Size / 4; i++) {
+            const uint32_t ft = packedFt[i];
             for (int v = 0; v < L2_VECS; v++) {
-                vec w_v = load((const vec *)&w1[bucket][nzIndices[nzi]][v * (vecsize / i8s)]);
-                vec partial = maddubs16(set1_32(ft), w_v);
+                const vec w_v = load((const vec *)&w1[bucket][i][v * (vecsize / i8s)]);
+                const vec partial = maddubs16(set1_32(ft), w_v);
                 accum[v][0] = add32(accum[v][0], maddwd16(partial, ones));
             }
         }
