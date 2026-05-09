@@ -113,6 +113,7 @@ struct alignas(64) SmallBoard {
     }
 };
 
+/*
 static constexpr std::array<std::array<uint16_t, 8>, 256> makeNzTable() {
     std::array<std::array<uint16_t, 8>, 256> t{};
     for (int b = 0; b < 256; b++) {
@@ -123,6 +124,7 @@ static constexpr std::array<std::array<uint16_t, 8>, 256> makeNzTable() {
     return t;
 }
 static constexpr auto NZ_TABLE = makeNzTable();
+*/
 
 struct NNUEevaluator {
 
@@ -279,7 +281,9 @@ struct NNUEevaluator {
         vec partial1 = maddubs16(set1_32(packed1), weights1);
         return add32(sum, maddwd16(add16(partial0, partial1), ones));
     }
+#endif
 
+    /*
     inline int findNonZeroIndices(const uint32_t *packedFt, uint16_t *indices) {
         int count = 0;
         constexpr int elems = vecsize / i32s;
@@ -296,7 +300,7 @@ struct NNUEevaluator {
         }
         return count;
     }
-#endif
+    */
 
     void printAccum() {
         for (ll i = 0; i < hl1Size; i++)
@@ -368,6 +372,34 @@ struct NNUEevaluator {
         for (int v = 0; v < L2_VECS; v++)
             for (int u = 0; u < L2_UNROLL; u++)
                 accum[v][u] = setzero();
+
+        /*
+        alignas(64) uint16_t nzIndices[hl1Size / 4 + 8];
+        int nzCount = findNonZeroIndices(packedFt, nzIndices);
+
+        int nzi = 0;
+        for (; nzi + 2 * L2_UNROLL <= nzCount; nzi += 2 * L2_UNROLL) {
+            for (int u = 0; u < L2_UNROLL; u++) {
+                const uint32_t ft1 = packedFt[nzIndices[nzi + 2 * u]];
+                const uint32_t ft2 = packedFt[nzIndices[nzi + 2 * u + 1]];
+
+                for (int v = 0; v < L2_VECS; v++) {
+                    const vec w1_v = load((const vec *)&w1[bucket][nzIndices[nzi + 2 * u]][v * (vecsize / i8s)]);
+                    const vec w2_v = load((const vec *)&w1[bucket][nzIndices[nzi + 2 * u + 1]][v * (vecsize / i8s)]);
+                    accum[v][u] = dpbusdx2(accum[v][u], ft1, w1_v, ft2, w2_v, ones);
+                }
+            }
+        }
+
+        for (; nzi < nzCount; nzi++) {
+            const uint32_t ft = packedFt[nzIndices[nzi]];
+            for (int v = 0; v < L2_VECS; v++) {
+                const vec w_v = load((const vec *)&w1[bucket][nzIndices[nzi]][v * (vecsize / i8s)]);
+                const vec partial = maddubs16(set1_32(ft), w_v);
+                accum[v][0] = add32(accum[v][0], maddwd16(partial, ones));
+            }
+        }
+        */
 
         int i = 0;
         for (; i + 2 * L2_UNROLL <= hl1Size / 4; i += 2 * L2_UNROLL) {
