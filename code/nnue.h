@@ -9,6 +9,7 @@
 
 #endif /* DECLARS */
 
+#include <array>
 #include "simd.h"
 
 #define INCBIN_SILENCE_BITCODE_WARNING
@@ -111,6 +112,17 @@ struct alignas(64) SmallBoard {
                 inputBucketBoard[BLACK][blackKingPos]};
     }
 };
+
+static constexpr std::array<std::array<uint16_t, 8>, 256> makeNzTable() {
+    std::array<std::array<uint16_t, 8>, 256> t{};
+    for (int b = 0; b < 256; b++) {
+        int n = 0;
+        for (int i = 0; i < 8; i++)
+            if (b & (1 << i)) t[b][n++] = i;
+    }
+    return t;
+}
+static constexpr auto NZ_TABLE = makeNzTable();
 
 struct NNUEevaluator {
 
@@ -267,6 +279,23 @@ struct NNUEevaluator {
         vec partial1 = maddubs16(set1_32(packed1), weights1);
         return add32(sum, maddwd16(add16(partial0, partial1), ones));
     }
+
+    inline int findNonZeroIndices(const uint32_t *packedFt, uint16_t *indices) {
+        int count = 0;
+        constexpr int elems = vecsize / i32s;
+        constexpr int bytes = elems / 8;
+        for (int i = 0; i < hl1Size / 4; i += elems) {
+            unsigned mask = cmpneq32_mask(load((const vec *)(packedFt + i)), setzero());
+            for (int b = 0; b < bytes; b++) {
+                uint8_t byte = (mask >> (8 * b)) & 0xFF;
+                __m128i lut  = _mm_loadu_si128((const __m128i *)NZ_TABLE[byte].data());
+                __m128i base = _mm_set1_epi16((short)(i + b * 8));
+                _mm_storeu_si128((__m128i *)(indices + count), _mm_add_epi16(lut, base));
+                count += __builtin_popcount(byte);
+            }
+        }
+        return count;
+    }
 #endif
 
     void printAccum() {
@@ -330,74 +359,54 @@ struct NNUEevaluator {
 
         alignas(64) int hl2Activations[hl2Size * 2];
 
-        #ifdef __AVX512F__
+        alignas(64) uint16_t nzIndices[hl1Size / 4 + 8];
+        int nzCount = findNonZeroIndices(packedFt, nzIndices);
 
-            vec L2_0 = setzero();
-            vec L2_1 = setzero();
-            vec L2_2 = setzero();
-            vec L2_3 = setzero();
+        // number of vectors needed to store the hl2Size values
+        constexpr int L2_VECS = hl2Size * i32s / vecsize;
+        // to fit the 16 outputs we need 1 vector on avx512, 2 on avx2
+        constexpr int L2_UNROLL = 4;
 
-            for (int i = 0; i < hl1Size / 4; i += 8) {
-                vec wg0 = load((const vec *)&w1[bucket][i][0]);
-                vec wg1 = load((const vec *)&w1[bucket][i + 1][0]);
-                vec wg2 = load((const vec *)&w1[bucket][i + 2][0]);
-                vec wg3 = load((const vec *)&w1[bucket][i + 3][0]);
-                vec wg4 = load((const vec *)&w1[bucket][i + 4][0]);
-                vec wg5 = load((const vec *)&w1[bucket][i + 5][0]);
-                vec wg6 = load((const vec *)&w1[bucket][i + 6][0]);
-                vec wg7 = load((const vec *)&w1[bucket][i + 7][0]);
-                L2_0 = dpbusdx2(L2_0, packedFt[i],     wg0, packedFt[i + 1], wg1, ones);
-                L2_1 = dpbusdx2(L2_1, packedFt[i + 2], wg2, packedFt[i + 3], wg3, ones);
-                L2_2 = dpbusdx2(L2_2, packedFt[i + 4], wg4, packedFt[i + 5], wg5, ones);
-                L2_3 = dpbusdx2(L2_3, packedFt[i + 6], wg6, packedFt[i + 7], wg7, ones);
+        vec accum[L2_VECS][L2_UNROLL];
+        for (int v = 0; v < L2_VECS; v++)
+            for (int u = 0; u < L2_UNROLL; u++)
+                accum[v][u] = setzero();
+
+        int nzi = 0;
+        for (; nzi + 2 * L2_UNROLL <= nzCount; nzi += 2 * L2_UNROLL) {
+            for (int u = 0; u < L2_UNROLL; u++) {
+                uint32_t ft1 = packedFt[nzIndices[nzi + 2 * u]];
+                uint32_t ft2 = packedFt[nzIndices[nzi + 2 * u + 1]];
+
+                for (int v = 0; v < L2_VECS; v++) {
+                    vec w1_v = load((const vec *)&w1[bucket][nzIndices[nzi + 2 * u]][v * (vecsize / i8s)]);
+                    vec w2_v = load((const vec *)&w1[bucket][nzIndices[nzi + 2 * u + 1]][v * (vecsize / i8s)]);
+                    accum[v][u] = dpbusdx2(accum[v][u], ft1, w1_v, ft2, w2_v, ones);
+                }
             }
+        }
 
-            vec L2 = add32(add32(L2_0, L2_1), add32(L2_2, L2_3));
+        for (; nzi < nzCount; nzi++) {
+            uint32_t ft = packedFt[nzIndices[nzi]];
+            for (int v = 0; v < L2_VECS; v++) {
+                vec w_v = load((const vec *)&w1[bucket][nzIndices[nzi]][v * (vecsize / i8s)]);
+                vec partial = maddubs16(set1_32(ft), w_v);
+                accum[v][0] = add32(accum[v][0], maddwd16(partial, ones));
+            }
+        }
+
+        for (int v = 0; v < L2_VECS; v++) {
+            vec L2 = setzero();
+            for (int u = 0; u < L2_UNROLL; u++) L2 = add32(L2, accum[v][u]);
             L2 = srai32(L2, 8);
-            L2 = add32(L2, load((vec *)&b1[bucket][0]));
+            L2 = add32(L2, load((const vec *)&b1[bucket][v * (vecsize / i32s)]));
             auto L2c = max32(L2, zero);
             L2c = min32(L2c, q32);
             L2 = mullo32(L2, L2);
             L2 = min32(L2, qq);
-
-            store((vec *)&hl2Activations[0], slli32(L2c, 6));
-            store((vec *)&hl2Activations[hl2Size], L2);
-
-        #elif defined(__AVX2__)
-
-            vec L2_0 = setzero();
-            vec L2_1 = setzero();
-
-            for (int i = 0; i < hl1Size / 4; i += 2) {
-                vec w10 = load((const vec *)&w1[bucket][i][0]);
-                vec w11 = load((const vec *)&w1[bucket][i + 1][0]);
-                vec w10sq = load((const vec *)&w1[bucket][i][2 * hl2Size]);
-                vec w11sq = load((const vec *)&w1[bucket][i + 1][2 * hl2Size]);
-
-                L2_0 = dpbusdx2(L2_0, packedFt[i], w10, packedFt[i + 1], w11, ones);
-                L2_1 = dpbusdx2(L2_1, packedFt[i], w10sq, packedFt[i + 1], w11sq, ones);
-            }
-
-            L2_0 = srai32(L2_0, 8);
-            L2_0 = add32(L2_0, load((vec *)&b1[bucket][0]));
-            auto L2_0c = max32(L2_0, zero);
-            L2_0c = min32(L2_0c, q32);
-            L2_0 = mullo32(L2_0, L2_0);
-            L2_0 = min32(L2_0, qq);
-
-            L2_1 = srai32(L2_1, 8);
-            L2_1 = add32(L2_1, load((vec *)&b1[bucket][hl2Size / 2]));
-            auto L2_1c = max32(L2_1, zero);
-            L2_1c = min32(L2_1c, q32);
-            L2_1 = mullo32(L2_1, L2_1);
-            L2_1 = min32(L2_1, qq);
-
-            store((vec *)&hl2Activations[0], slli32(L2_0c, 6));
-            store((vec *)&hl2Activations[hl2Size / 2], slli32(L2_1c, 6));
-            store((vec *)&hl2Activations[hl2Size], L2_0);
-            store((vec *)&hl2Activations[hl2Size + hl2Size / 2], L2_1);
-
-        #endif
+            store((vec *)&hl2Activations[v * (vecsize / i32s)], slli32(L2c, 6));
+            store((vec *)&hl2Activations[hl2Size + v * (vecsize / i32s)], L2);
+        }
 
         alignas(64) int hl3Layer[hl3Size];
         memset(hl3Layer, 0, sizeof(hl3Layer));
