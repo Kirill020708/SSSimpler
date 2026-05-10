@@ -942,6 +942,9 @@ struct Worker {
         		corrhistHelper.update(color, board, (bestScore - staticEval) * depth / 8);
         }
 
+        if (newTTmove == Move() && ttMove != Move())
+            newTTmove = ttMove;
+
         if (bestScore == -inf)
         	bestScore = alpha;
 
