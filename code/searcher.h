@@ -479,6 +479,8 @@ struct Worker {
                 (improving) * nmpRimproving +
                 cutNode * nmpRcutnode +
             	min((staticEval - beta) * 1024 / nmpRmargin, nmpRmarginClamp)) / 1024;
+        
+            searchStack[ply].move = Move();
 
             int prevEnPassColumn = board.makeNullMove();
             int score = -search<NonPV>(board, oppositeColor, depth - R, 0, -beta, -beta + 1, ply + 1, extended, !cutNode);
@@ -551,6 +553,9 @@ struct Worker {
 
 		            ull newKey = zobristAfterMove(board, move);
 		            transpositionTable.prefetch(newKey);
+                    
+                    searchStack[ply].move = move;
+                    searchStack[ply].isQuiet = board.isQuietMove(move);
 		            
 		            board.makeMove(move, nnueEvaluator);
 
@@ -626,6 +631,7 @@ struct Worker {
 
         	searchStack[ply + 1].excludeTTmove = true;
         	searchStack[ply + 1].excludeMove = ttMove;
+            searchStack[ply].move = Move();
         	int singularBeta = ttEntry.score - (depth * singextMarginDepth) / 1024;
         	int singularScore = search<nodePvType>(board, color, depth / 2, 0, singularBeta - 1, singularBeta, ply + 1, extended, cutNode);
 
@@ -940,11 +946,11 @@ struct Worker {
         }
 
         //Prior countermove bonus
-        if (!isRoot && type == UPPER_BOUND && searchStack[ply - 1].isQuiet) {
+        if (!isRoot && type == UPPER_BOUND && searchStack[ply - 1].isQuiet && searchStack[ply - 1].move != Move()) {
 
             int pcmBonus = (12 * depth);
 
-            historyHelper.update(searchStack[ply - 1].board, (color == WHITE) ? BLACK : WHITE, searchStack[ply - 1].move, pcmBonus);
+            historyHelper.update(searchStack[ply - 1].board, searchStack[ply - 1].board.boardColor, searchStack[ply - 1].move, pcmBonus);
         }
 
         if (type == UPPER_BOUND)
