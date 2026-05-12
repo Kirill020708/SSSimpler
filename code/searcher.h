@@ -479,7 +479,7 @@ struct Worker {
                 (improving) * nmpRimproving +
                 cutNode * nmpRcutnode +
             	min((staticEval - beta) * 1024 / nmpRmargin, nmpRmarginClamp)) / 1024;
-        
+
             searchStack[ply].move = Move();
 
             int prevEnPassColumn = board.makeNullMove();
@@ -948,7 +948,7 @@ struct Worker {
         //Prior countermove bonus
         if (!isRoot && type == UPPER_BOUND && searchStack[ply - 1].isQuiet && searchStack[ply - 1].move != Move()) {
 
-            int pcmBonus = (12 * depth);
+            int pcmBonus = (8 * depth);
 
             historyHelper.update(searchStack[ply - 1].board, searchStack[ply - 1].board.boardColor, searchStack[ply - 1].move, pcmBonus);
         }
