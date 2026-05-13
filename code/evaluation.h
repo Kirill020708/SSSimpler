@@ -795,7 +795,7 @@ struct Evaluator {
             500 * board.rooks.popcnt() +
             900 * board.queens.popcnt();
 
-        return eval * (material + 25000) / 32768;
+        return eval * (material + 35000) / 32768;
     }
 
     int evaluatePosition(Board &board, int color, NNUEevaluator &nnueEvaluator) { // board evaluation with NNUE
