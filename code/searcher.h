@@ -41,6 +41,9 @@ struct StackState {
     Board board;
     Move move;
     bool isQuiet;
+    
+    Bitboard whiteAttacks, blackAttacks;    
+
     bool excludeTTmove = false;
     Move excludeMove;
     Move bestMove;
@@ -601,6 +604,9 @@ struct Worker {
         Bitboard whiteAttacks = moveGenerator.computeAttackBitboardsW(board);
         Bitboard blackAttacks = moveGenerator.computeAttackBitboardsB(board);
 
+        searchStack[ply].whiteAttacks = whiteAttacks;
+        searchStack[ply].blackAttacks = blackAttacks;
+
         bool doTTmoveBeforeMovegen = true;
 
         if(ttMove == Move() || searchStack[ply].excludeTTmove){
@@ -948,8 +954,11 @@ struct Worker {
         //Prior countermove bonus
         if (!isRoot && type == UPPER_BOUND && searchStack[ply - 1].isQuiet && searchStack[ply - 1].move != Move()) {
 
-            int pcmBonus = (8 * depth);
+            int pcmBonus = (12 * depth);
 
+            historyHelper.whiteAttacks = searchStack[ply - 1].whiteAttacks;
+            historyHelper.blackAttacks = searchStack[ply - 1].blackAttacks;
+            
             historyHelper.update(searchStack[ply - 1].board, searchStack[ply - 1].board.boardColor, searchStack[ply - 1].move, pcmBonus);
         }
 
