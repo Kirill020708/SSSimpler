@@ -38,6 +38,9 @@
 #endif /* HISTORY */
 
 struct StackState {
+    Board board;
+    Move move;
+    bool isQuiet;
     bool excludeTTmove = false;
     Move excludeMove;
     Move bestMove;
@@ -237,6 +240,9 @@ struct Worker {
 
         moveGenerator.computePinnedPiecesW(board);
         moveGenerator.computePinnedPiecesB(board);
+
+        moveGenerator.computeAttackBitboardsW(board);
+        moveGenerator.computeAttackBitboardsB(board);
 
         // moveListGenerator.killerMove=moveListGenerator.hashMove;
         Board boardCopy = board;
@@ -477,6 +483,8 @@ struct Worker {
                 cutNode * nmpRcutnode +
             	min((staticEval - beta) * 1024 / nmpRmargin, nmpRmarginClamp)) / 1024;
 
+            searchStack[ply].move = Move();
+
             int prevEnPassColumn = board.makeNullMove();
             int score = -search<NonPV>(board, oppositeColor, depth - R, 0, -beta, -beta + 1, ply + 1, extended, !cutNode);
             board.makeNullMove();
@@ -516,7 +524,7 @@ struct Worker {
         killers[ply + 1][0] = killers[ply + 1][1] = Move();
         killersAge[ply + 1][0] = killersAge[ply + 1][1] = 0;
 
-        Board boardCopy = board;
+        searchStack[ply].board = board;
 
         Move ttMove = ttEntry.move;
 
@@ -548,6 +556,9 @@ struct Worker {
 
 		            ull newKey = zobristAfterMove(board, move);
 		            transpositionTable.prefetch(newKey);
+                    
+                    searchStack[ply].move = move;
+                    searchStack[ply].isQuiet = board.isQuietMove(move);
 		            
 		            board.makeMove(move, nnueEvaluator);
 
@@ -557,7 +568,7 @@ struct Worker {
 		            	score = -search<NonPV>(board, oppositeColor, depth - probcutDepthR, 0, -probcutBeta, -probcutBeta + 1,
 	                                    ply + 1, extended, !cutNode);
 
-		            board = boardCopy;
+		            board = searchStack[ply].board;
 
 		            nnueEvaluator.ply--;
 
@@ -590,15 +601,13 @@ struct Worker {
             depth--;
         }
 
-        Bitboard whiteAttacks = moveGenerator.computeAttackBitboardsW(board);
-        Bitboard blackAttacks = moveGenerator.computeAttackBitboardsB(board);
+        moveGenerator.computeAttackBitboardsW(board);
+        moveGenerator.computeAttackBitboardsB(board);
 
         bool doTTmoveBeforeMovegen = true;
 
         if(ttMove == Move() || searchStack[ply].excludeTTmove){
         	doTTmoveBeforeMovegen = false;
-        	historyHelper.whiteAttacks = whiteAttacks;
-        	historyHelper.blackAttacks = blackAttacks;
         	moveListGenerator.generateMoves(board, historyHelper, color, ply, DO_SORT, ALL_MOVES);
         	if (moveListGenerator.moveListSize[ply] == 0)
         		return evaluator.evaluateStalledPosition(board, color, ply);
@@ -623,6 +632,7 @@ struct Worker {
 
         	searchStack[ply + 1].excludeTTmove = true;
         	searchStack[ply + 1].excludeMove = ttMove;
+            searchStack[ply].move = Move();
         	int singularBeta = ttEntry.score - (depth * singextMarginDepth) / 1024;
         	int singularScore = search<nodePvType>(board, color, depth / 2, 0, singularBeta - 1, singularBeta, ply + 1, extended, cutNode);
 
@@ -633,9 +643,6 @@ struct Worker {
         		singularExtended++;
 
         		extendTTmove = 1;
-
-                historyHelper.whiteAttacks = whiteAttacks;
-                historyHelper.blackAttacks = blackAttacks;
 
                 int historyValue = historyHelper.getScore(board, color, ttMove) - historyHelper.maxHistoryScore;
 
@@ -680,8 +687,6 @@ struct Worker {
             }
 
 
-        	historyHelper.whiteAttacks = whiteAttacks;
-        	historyHelper.blackAttacks = blackAttacks;
 
             int historyValue = historyHelper.getScore(board, color, move) - historyHelper.maxHistoryScore;
             float historyValueF = historyValue / float(historyHelper.maxHistoryScore);
@@ -775,6 +780,9 @@ struct Worker {
 
             occuredPositionsHelper.occuredPositions[board.age + 1] = newKey;
 
+            searchStack[ply].move = move;
+            searchStack[ply].isQuiet = board.isQuietMove(move);
+
             board.makeMove(move, nnueEvaluator);
 
             // transpositionTable.prefetch(board.getZobristKey());
@@ -836,7 +844,7 @@ struct Worker {
             } else
                 score = -search<nodePvType>(board, oppositeColor, depth - 1 + extendDepth, 0, -beta, -alpha, ply + 1, extended + extendDepth, !cutNode);
 
-            board = boardCopy;
+            board = searchStack[ply].board;
 
             nnueEvaluator.ply--;
 
@@ -899,9 +907,6 @@ struct Worker {
                     		corrhistHelper.update(color, board, (score - staticEval) * depth / 8);
                     }
 
-		        	historyHelper.whiteAttacks = whiteAttacks;
-		        	historyHelper.blackAttacks = blackAttacks;
-
                     int hsDepth = depth + (!isMovingSideInCheck && staticEval <= alpha);
 		        	int historyBonus = (historyBonusD2 * hsDepth * hsDepth + historyBonusD1 * hsDepth + historyBonusD0) / 16;
                     int maluseBonus = (historyMaluseD2 * hsDepth * hsDepth + historyMaluseD1 * hsDepth + historyMaluseD0) / 16;
@@ -922,8 +927,6 @@ struct Worker {
             }
 
             if (doTTmoveBeforeMovegen && currentMove == 0) {
-	        	historyHelper.whiteAttacks = whiteAttacks;
-	        	historyHelper.blackAttacks = blackAttacks;
 
 		        moveListGenerator.hashMove = ttMove;
 		        moveListGenerator.killerMove = killers[ply][killerMove];
