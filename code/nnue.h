@@ -737,7 +737,6 @@ struct NNUEevaluator {
             store((vec *)&hl2Activations[v * (vecsize / i32s)], slli32(L2c, 6));
             store((vec *)&hl2Activations[hl2Size + v * (vecsize / i32s)], L2);
         }
-        cout<<endl;
 
         alignas(64) int hl3Layer[hl3Size];
         memset(hl3Layer, 0, sizeof(hl3Layer));
