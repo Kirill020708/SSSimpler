@@ -98,8 +98,10 @@ struct Benchmark {
         cout << endl;
         cout << endl;
         #endif
-
+        
+        #ifndef SCALAR
         cout << float(nnzTotal) / nnzCount << endl;
+        #endif
     }
 };
 

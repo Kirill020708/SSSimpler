@@ -65,4 +65,6 @@
 	}
 	
 
+#else
+	#define SCALAR
 #endif

@@ -49,7 +49,11 @@ bool initialized = false;
 alignas(64) __int16_t w0[inputBuckets][inputSize][hl1Size];
 alignas(64) __int16_t b0[hl1Size];
 
+#ifdef SCALAR
+alignas(64) __int8_t w1[outputBuckets * inputBuckets][hl2Size][hl1Size];
+#else
 alignas(64) __int8_t w1[outputBuckets * inputBuckets][hl1Size / 4][w1BlockSize];
+#endif
 alignas(64) int b1[outputBuckets * inputBuckets][hl2Size];
 alignas(64) int w2[outputBuckets * inputBuckets][hl2Size * 2][hl3Size];
 alignas(64) int b2[outputBuckets * inputBuckets][hl3Size];
@@ -212,30 +216,46 @@ struct FinnyTable {
     alignas(64) __int16_t accum[hl1Size];
 
     void clear() {
-        for (int i = 0; i < hl1Size; i += vecsize / i16s) {
-            store((vec *)&accum[i], load((vec *)&b0[i]));
-        }
+
+        #ifdef SCALAR
+            for (int i = 0; i < hl1Size; i++)
+                accum[i] = b0[i];
+        #else
+            for (int i = 0; i < hl1Size; i += vecsize / i16s) {
+                store((vec *)&accum[i], load((vec *)&b0[i]));
+            }
+        #endif
     }
 
 
     void Sub(int updI, int buckets) {
 
-        for (int i = 0; i < hl1Size; i += vecsize / i16s) {
+        #ifdef SCALAR
+            for (int i = 0; i < hl1Size; i++)
+                accum[i] -= w0[buckets][updI][i];
+        #else
+            for (int i = 0; i < hl1Size; i += vecsize / i16s) {
 
-            store((vec *)&accum[i],
-                                sub16(load((vec *)&accum[i]),
-                                                 load((vec *)&w0[buckets][updI][i])));
-        }
+                store((vec *)&accum[i],
+                                    sub16(load((vec *)&accum[i]),
+                                                     load((vec *)&w0[buckets][updI][i])));
+            }
+        #endif
     }
 
     void Add(int updI, int buckets) {
 
-        for (int i = 0; i < hl1Size; i += vecsize / i16s) {
+        #ifdef SCALAR
+            for (int i = 0; i < hl1Size; i++)
+                accum[i] += w0[buckets][updI][i];
+        #else
+            for (int i = 0; i < hl1Size; i += vecsize / i16s) {
 
-            store((vec *)&accum[i],
-                                add16(load((vec *)&accum[i]),
-                                                 load((vec *)&w0[buckets][updI][i])));
-        }
+                store((vec *)&accum[i],
+                                    add16(load((vec *)&accum[i]),
+                                                     load((vec *)&w0[buckets][updI][i])));
+            }
+        #endif
     }
 
     void update(int color, __int16_t *hlSum, SmallBoard &newBoard) {
@@ -274,10 +294,15 @@ struct FinnyTable {
 
         board = newBoard;
 
+        #ifdef SCALAR
+            for (int i = 0; i < hl1Size; i++)
+                hlSum[i] = accum[i];
+        #else
+            for (int i = 0; i < hl1Size; i += vecsize / i16s) {
+                store((vec *)&hlSum[i], load((vec *)&accum[i]));
+            }
+        #endif
 
-        for (int i = 0; i < hl1Size; i += vecsize / i16s) {
-            store((vec *)&hlSum[i], load((vec *)&accum[i]));
-        }
     }
 };
 
@@ -312,10 +337,15 @@ struct NNUEevaluator {
     }
 
     void clear(int idx) {
-        for (int i = 0; i < hl1Size; i += vecsize / i16s) {
-            store((vec *)&hlSumW[idx][i], load((vec *)&b0[i]));
-            store((vec *)&hlSumB[idx][i], load((vec *)&b0[i]));
-        }
+        #ifdef SCALAR
+            for (int i = 0; i < hl1Size; i++)
+                hlSumW[idx][i] = hlSumB[idx][i] = b0[i];
+        #else
+            for (int i = 0; i < hl1Size; i += vecsize / i16s) {
+                store((vec *)&hlSumW[idx][i], load((vec *)&b0[i]));
+                store((vec *)&hlSumB[idx][i], load((vec *)&b0[i]));
+            }
+        #endif
     }
 
     void set0(pair<int, int> neuronIdx) {
@@ -331,73 +361,116 @@ struct NNUEevaluator {
     }
 
     void Add(int idx, pair<int, int>updI, pair<ll, ll>buckets) {
-        for (int i = 0; i < hl1Size; i += vecsize / i16s) {
+        #ifdef SCALAR
+            for (int i = 0; i < hl1Size; i++) {
+                hlSumW[idx][i] += w0[buckets.F][updI.F][i];
+                hlSumB[idx][i] += w0[buckets.S][updI.S][i];
+            }
+        #else
+            for (int i = 0; i < hl1Size; i += vecsize / i16s) {
 
-            store((vec *)&hlSumW[idx][i],
-                                add16(load((vec *)&hlSumW[idx][i]),
-                                                 load((vec *)&w0[buckets.F][updI.F][i])));
-            store((vec *)&hlSumB[idx][i],
-                                add16(load((vec *)&hlSumB[idx][i]),
-                                                 load((vec *)&w0[buckets.S][updI.S][i])));
-        }
+                store((vec *)&hlSumW[idx][i],
+                                    add16(load((vec *)&hlSumW[idx][i]),
+                                                     load((vec *)&w0[buckets.F][updI.F][i])));
+                store((vec *)&hlSumB[idx][i],
+                                    add16(load((vec *)&hlSumB[idx][i]),
+                                                     load((vec *)&w0[buckets.S][updI.S][i])));
+            }
+        #endif
     }
 
     
 
     void SubAdd(int idx, pair<ll, ll>buckets) {
-        for (int i = 0; i < hl1Size; i += vecsize / i16s) {
+        #ifdef SCALAR
+            for (int i = 0; i < hl1Size; i++) {
+                hlSumW[idx][i] = hlSumW[idx - 1][i] + w0[buckets.F][updateW[idx][1]][i]
+                                                    - w0[buckets.F][updateW[idx][0]][i];
 
-            store((vec *)&hlSumW[idx][i],
-                                add16(load((vec *)&hlSumW[idx - 1][i]),
-                                    sub16(load((vec *)&w0[buckets.F][updateW[idx][1]][i]),
-                                                     load((vec *)&w0[buckets.F][updateW[idx][0]][i]))));
+                hlSumB[idx][i] = hlSumB[idx - 1][i] + w0[buckets.S][updateB[idx][1]][i]
+                                                    - w0[buckets.S][updateB[idx][0]][i];
+            }
+        #else
+            for (int i = 0; i < hl1Size; i += vecsize / i16s) {
 
-            store((vec *)&hlSumB[idx][i],
-                                add16(load((vec *)&hlSumB[idx - 1][i]),
-                                    sub16(load((vec *)&w0[buckets.S][updateB[idx][1]][i]),
-                                                     load((vec *)&w0[buckets.S][updateB[idx][0]][i]))));
-        }
+                store((vec *)&hlSumW[idx][i],
+                                    add16(load((vec *)&hlSumW[idx - 1][i]),
+                                        sub16(load((vec *)&w0[buckets.F][updateW[idx][1]][i]),
+                                                         load((vec *)&w0[buckets.F][updateW[idx][0]][i]))));
+
+                store((vec *)&hlSumB[idx][i],
+                                    add16(load((vec *)&hlSumB[idx - 1][i]),
+                                        sub16(load((vec *)&w0[buckets.S][updateB[idx][1]][i]),
+                                                         load((vec *)&w0[buckets.S][updateB[idx][0]][i]))));
+            }
+        #endif
     }
 
     void SubSubAdd(int idx, pair<ll, ll>buckets) {
-        for (int i = 0; i < hl1Size; i += vecsize / i16s) {
+        #ifdef SCALAR
+            for (int i = 0; i < hl1Size; i++) {
+                hlSumW[idx][i] = hlSumW[idx - 1][i] + w0[buckets.F][updateW[idx][2]][i]
+                                                    - w0[buckets.F][updateW[idx][1]][i]
+                                                    - w0[buckets.F][updateW[idx][0]][i];
 
-            store((vec *)&hlSumW[idx][i],
-                                add16(load((vec *)&hlSumW[idx - 1][i]),
-                                    sub16(load((vec *)&w0[buckets.F][updateW[idx][2]][i]),
-                                        add16(load((vec *)&w0[buckets.F][updateW[idx][0]][i]),
-                                                     load((vec *)&w0[buckets.F][updateW[idx][1]][i])))));
+                hlSumB[idx][i] = hlSumB[idx - 1][i] + w0[buckets.S][updateB[idx][2]][i]
+                                                    - w0[buckets.S][updateB[idx][1]][i]
+                                                    - w0[buckets.S][updateB[idx][0]][i];
+            }
+        #else
+            for (int i = 0; i < hl1Size; i += vecsize / i16s) {
+
+                store((vec *)&hlSumW[idx][i],
+                                    add16(load((vec *)&hlSumW[idx - 1][i]),
+                                        sub16(load((vec *)&w0[buckets.F][updateW[idx][2]][i]),
+                                            add16(load((vec *)&w0[buckets.F][updateW[idx][0]][i]),
+                                                         load((vec *)&w0[buckets.F][updateW[idx][1]][i])))));
 
 
-            store((vec *)&hlSumB[idx][i],
-                                add16(load((vec *)&hlSumB[idx - 1][i]),
-                                    sub16(load((vec *)&w0[buckets.S][updateB[idx][2]][i]),
-                                        add16(load((vec *)&w0[buckets.S][updateB[idx][0]][i]),
-                                                     load((vec *)&w0[buckets.S][updateB[idx][1]][i])))));
+                store((vec *)&hlSumB[idx][i],
+                                    add16(load((vec *)&hlSumB[idx - 1][i]),
+                                        sub16(load((vec *)&w0[buckets.S][updateB[idx][2]][i]),
+                                            add16(load((vec *)&w0[buckets.S][updateB[idx][0]][i]),
+                                                         load((vec *)&w0[buckets.S][updateB[idx][1]][i])))));
 
-        }
+            }
+        #endif
     }
 
     void SubAddSubAdd(int idx, pair<ll, ll>buckets) {
-        for (int i = 0; i < hl1Size; i += vecsize / i16s) {
+        #ifdef SCALAR
+            for (int i = 0; i < hl1Size; i++) {
+                hlSumW[idx][i] = hlSumW[idx - 1][i] + w0[buckets.F][updateW[idx][1]][i]
+                                                    + w0[buckets.F][updateW[idx][3]][i]
+                                                    - w0[buckets.F][updateW[idx][0]][i]
+                                                    - w0[buckets.F][updateW[idx][2]][i];
 
-            store((vec *)&hlSumW[idx][i],
-                                add16(load((vec *)&hlSumW[idx - 1][i]),
-                                    add16(
-                                        sub16(load((vec *)&w0[buckets.F][updateW[idx][1]][i]),
-                                                         load((vec *)&w0[buckets.F][updateW[idx][0]][i])),
-                                        sub16(load((vec *)&w0[buckets.F][updateW[idx][3]][i]),
-                                                         load((vec *)&w0[buckets.F][updateW[idx][2]][i])))));
+                hlSumB[idx][i] = hlSumB[idx - 1][i] + w0[buckets.S][updateB[idx][1]][i]
+                                                    + w0[buckets.S][updateB[idx][3]][i]
+                                                    - w0[buckets.S][updateB[idx][0]][i]
+                                                    - w0[buckets.S][updateB[idx][2]][i];
+            }
+        #else
+            for (int i = 0; i < hl1Size; i += vecsize / i16s) {
 
-            store((vec *)&hlSumB[idx][i],
-                                add16(load((vec *)&hlSumB[idx - 1][i]),
-                                    add16(
-                                        sub16(load((vec *)&w0[buckets.S][updateB[idx][1]][i]),
-                                                         load((vec *)&w0[buckets.S][updateB[idx][0]][i])),
-                                        sub16(load((vec *)&w0[buckets.S][updateB[idx][3]][i]),
-                                                         load((vec *)&w0[buckets.S][updateB[idx][2]][i])))));
+                store((vec *)&hlSumW[idx][i],
+                                    add16(load((vec *)&hlSumW[idx - 1][i]),
+                                        add16(
+                                            sub16(load((vec *)&w0[buckets.F][updateW[idx][1]][i]),
+                                                             load((vec *)&w0[buckets.F][updateW[idx][0]][i])),
+                                            sub16(load((vec *)&w0[buckets.F][updateW[idx][3]][i]),
+                                                             load((vec *)&w0[buckets.F][updateW[idx][2]][i])))));
 
-        }
+                store((vec *)&hlSumB[idx][i],
+                                    add16(load((vec *)&hlSumB[idx - 1][i]),
+                                        add16(
+                                            sub16(load((vec *)&w0[buckets.S][updateB[idx][1]][i]),
+                                                             load((vec *)&w0[buckets.S][updateB[idx][0]][i])),
+                                            sub16(load((vec *)&w0[buckets.S][updateB[idx][3]][i]),
+                                                             load((vec *)&w0[buckets.S][updateB[idx][2]][i])))));
+
+            }
+        #endif
     }
 
     int screlu(int x) {
@@ -405,26 +478,40 @@ struct NNUEevaluator {
         return x * x;
     }
 
+#if defined(__AVX2__) || defined(__AVX512F__)
     inline vechalf pack(vec activations) {
         return packus16(activations);
     }
+#endif
 
     inline void activateAcc(const __int16_t *accumulator, uint8_t *out) {
-        const vec zero = setzero();
-        const vec one = set1_16(Q0);
+        #ifdef SCALAR
 
-        for (int i = 0; i < hl1Size / 2; i += vecsize / i16s) {
-            vec ac1 = load((const vec *)(accumulator + i));
-            ac1 = max16(ac1, zero);
-            ac1 = min16(ac1, one);
+            for (int i = 0; i < hl1Size / 2; i++) {
 
-            vec ac2 = load((const vec *)(accumulator + hl1Size / 2 + i));
-            ac2 = max16(ac2, zero);
-            ac2 = min16(ac2, one);
+                int ac1 = clamp(int(accumulator[i]), 0, int(Q0));
+                int ac2 = clamp(int(accumulator[hl1Size / 2 + i]), 0, int(Q0));
 
-            vec ac = mulhi16(slli16(ac1, 7), ac2);
-            storehalf((vechalf *)(out + i), pack(ac));
-        }
+                out[i] = (ac1 * ac2) >> 9;
+            }
+        #else
+
+            const vec zero = setzero();
+            const vec one = set1_16(Q0);
+
+            for (int i = 0; i < hl1Size / 2; i += vecsize / i16s) {
+                vec ac1 = load((const vec *)(accumulator + i));
+                ac1 = max16(ac1, zero);
+                ac1 = min16(ac1, one);
+
+                vec ac2 = load((const vec *)(accumulator + hl1Size / 2 + i));
+                ac2 = max16(ac2, zero);
+                ac2 = min16(ac2, one);
+
+                vec ac = mulhi16(slli16(ac1, 7), ac2);
+                storehalf((vechalf *)(out + i), pack(ac));
+            }
+        #endif
     }
 
 #if defined(__AVX2__) || defined(__AVX512F__)
@@ -436,7 +523,7 @@ struct NNUEevaluator {
     }
 #endif
 
-    
+#if defined(__AVX2__) || defined(__AVX512F__)
     inline int findNonZeroIndices(const uint32_t *packedFt, uint16_t *indices) {
         int count = 0;
         constexpr int elems = vecsize / i32s;
@@ -453,7 +540,7 @@ struct NNUEevaluator {
         }
         return count;
     }
-    
+  #endif  
 
     void printAccum() {
         for (ll i = 0; i < hl1Size; i++)
@@ -497,12 +584,6 @@ struct NNUEevaluator {
 
         cleanAccumulators();
 
-        const vec zero = setzero();
-        const vec q = set1_16(Q);
-        const vec q32 = set1_32(Q);
-        const vec qq = set1_32(Q * Q);
-        const vec ones = set1_16(1);
-        const vec zerosm = set1_16(-1);
 
         alignas(64) uint8_t activatedFt[hl1Size];
 
@@ -512,10 +593,6 @@ struct NNUEevaluator {
         activateAcc(stm_acc, &activatedFt[0]);
         activateAcc(ntm_acc, &activatedFt[hl1Size / 2]);
 
-        #ifdef PERM_COMP
-        permComp.update(activatedFt);
-        #endif
-
         auto bck = bucketsStack[ply];
         int inbucket;
         if(color == WHITE)
@@ -524,6 +601,60 @@ struct NNUEevaluator {
             inbucket = bck.S;
 
         bucket = inbucket * materialBuckets + bucket;
+
+    #ifdef SCALAR
+
+        uint16_t nzIndices[hl1Size / 4 + 8];
+        int nzCount = 0;
+        for (int i = 0; i < hl1Size; i++)
+            if (activatedFt[i] != 0)
+                nzIndices[nzCount++] = i;
+
+        int L2[hl2Size];
+        memset(L2, 0, sizeof(L2));
+
+        for (int j = 0; j < hl2Size; j++)
+            for (int i = 0; i < nzCount; i++)
+                L2[j] += activatedFt[nzIndices[i]] * w1[bucket][j][nzIndices[i]];
+
+        int L2_act[2 * hl2Size];
+        for (int j = 0; j < hl2Size; j++) {
+            int x = L2[j];
+            x >>= 8;
+            x += b1[bucket][j];
+            L2_act[j] = clamp(x, 0, int(Q)) << 6;
+            L2_act[j + hl2Size] = clamp(x * x, 0, int(Q * Q));
+        }
+
+        int L3[hl3Size];
+        memset(L3, 0, sizeof(L3));
+
+        for(int i = 0; i < 2 * hl2Size; i++)
+            for (int j = 0; j < hl3Size; j++)
+                L3[j] += L2_act[i] * w2[bucket][i][j];
+
+        int sum = 0;
+        for (int i = 0; i < 32; i++) {
+            sum += clamp(L3[i] + b2[bucket][i], 0, int(Q * Q * Q)) * w3[bucket][i];
+        }
+        sum += b3[bucket];
+
+        sum = int64_t(sum) * SCALE / (Q*Q*Q*Q);
+
+        return sum;
+
+    #else
+
+        #ifdef PERM_COMP
+        permComp.update(activatedFt);
+        #endif
+
+        const vec zero = setzero();
+        const vec q = set1_16(Q);
+        const vec q32 = set1_32(Q);
+        const vec qq = set1_32(Q * Q);
+        const vec ones = set1_16(1);
+        const vec zerosm = set1_16(-1);
 
 
         const uint32_t *packedFt = (const uint32_t *)activatedFt;
@@ -606,6 +737,7 @@ struct NNUEevaluator {
             store((vec *)&hl2Activations[v * (vecsize / i32s)], slli32(L2c, 6));
             store((vec *)&hl2Activations[hl2Size + v * (vecsize / i32s)], L2);
         }
+        cout<<endl;
 
         alignas(64) int hl3Layer[hl3Size];
         memset(hl3Layer, 0, sizeof(hl3Layer));
@@ -629,6 +761,7 @@ struct NNUEevaluator {
 
         sum = int64_t(sum) * SCALE / (Q*Q*Q*Q);
         return sum;
+    #endif
     }
 
     // int evaluate1(int color, int bucket) {
@@ -758,8 +891,14 @@ struct NNUEevaluator {
                     else
                         ni = nnzPermutation[i - hl1Size / 2] + hl1Size / 2;
 
+                    #ifdef SCALAR
+                    int i0 = j;
+                    int j0 = ni;
+                    #else
                     int i0 = ni / 4;
                     int j0 = j * 4 + (ni % 4);
+                    #endif
+
                     w1[bucket][i0][j0] = getValue(data, iter, 8);
                 }
 
