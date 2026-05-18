@@ -317,6 +317,8 @@ struct Worker {
             	moveListGenerator.generateMoves(board, historyHelper, color, ply, DO_SORT, !isMovingSideInCheck);
             }
         }
+        if (type == UPPER_BOUND)
+            newTTmove = ttMove;
         transpositionTable.write(board, currentZobristKey, bestScore, rawStaticEval, 0, type, boardCurrentAge,
                                           newTTmove, ply, ttpv);
         return bestScore;
