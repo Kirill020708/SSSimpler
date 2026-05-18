@@ -973,8 +973,12 @@ struct Worker {
             int score = startSearch(board, depth, alpha, beta);
             if (score <= alpha)
                 alphaWindow = alphaWindow * aspirationWindowMult / 1024;
-            else if (score >= beta)
+            else if (score >= beta) {
+                if (depth > 1)
+                    depth--;
+                
                 betaWindow = betaWindow * aspirationWindowMult / 1024;
+            }
             else
                 return score;
         }
