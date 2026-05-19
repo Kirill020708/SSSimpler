@@ -756,6 +756,17 @@ struct Worker {
 	                continue;
 	            }
 
+                int noisyFPmargin = (120) * depth * depth;
+                // Noisy futility pruning
+                 if (movesSearched > 0 &&
+                    sseEval <= 0 &&
+                    staticEval < alpha - noisyFPmargin &&
+                    !searchStack[ply].excludeTTmove
+                ) {
+
+                    break;
+                }
+
 	            // Captures SEE pruning
                 int seeMarginNoisy = (seeBaseD0 + historyValue * seeHistoryD0 / 512) +
                                      (seeBaseD1 + historyValue * seeHistoryD1 / 512) * depth +
