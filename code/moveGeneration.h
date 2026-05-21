@@ -396,6 +396,7 @@ struct MoveGeneration {
             }
 
             if (attackingPiece == KING) {
+                captureNumber++;
                 break;
             }
 
