@@ -67,8 +67,15 @@ int main(int argc, char *argv[]) {
         "1.98761|bishop pair mg: 37.7756|bishop pair eg: 64.6135";
     evaluator.init(splitStr(evaluationWeights, "|"));
 
-    mainNnueEvaluator.initFromFile("/Users/Apple/Desktop/projects/chessEngv2/Simple-chess-engine/code/quantisedv2.bin");
+    mainNnueEvaluator.initFromFile();
     mainBoard = Board();
+
+    for (int i = 0; i < outputBuckets; i++) {
+        mainNnueEvaluator.finnyTables[0][0][i].clear();
+        mainNnueEvaluator.finnyTables[0][1][i].clear();
+        mainNnueEvaluator.finnyTables[1][0][i].clear();
+        mainNnueEvaluator.finnyTables[1][1][i].clear();
+    }
 
     if (argc >= 2) {
     	string args = string(argv[1]);

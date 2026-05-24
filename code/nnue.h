@@ -215,6 +215,22 @@ struct FinnyTable {
 
     alignas(64) __int16_t accum[hl1Size];
 
+    FinnyTable() {
+
+        #if defined(AVX)
+            for (int i = 0; i < hl1Size; i += vecsize / i16s) {
+                store((vec *)&accum[i], load((vec *)&b0[i]));
+            }
+        #elif defined(NEON)
+            for (int i = 0; i < hl1Size; i += vecsize / i16s) {
+                vst1q_s16(&accum[i], vld1q_s16(&b0[i]));
+            }
+        #else
+            for (int i = 0; i < hl1Size; i++)
+                accum[i] = b0[i];
+        #endif
+    }
+
     void clear() {
 
         #if defined(AVX)
@@ -352,13 +368,6 @@ struct NNUEevaluator {
         lastCleanAccumulator[0] = 0;
         for (int i = 0; i < hl1Size; i++)
             hlSumW[0][i] = hlSumB[0][i] = b0[i];
-
-        for (int i = 0; i < inputBuckets; i++) {
-            finnyTables[0][0][i].clear();
-            finnyTables[0][1][i].clear();
-            finnyTables[1][0][i].clear();
-            finnyTables[1][1][i].clear();
-        }
     }
 
     void clear(int idx) {
@@ -1001,7 +1010,7 @@ struct NNUEevaluator {
         return x;
     }
 
-    void initFromFile(string path) {
+    void initFromFile() {
         // ifstream file(path,ios::binary);
 
         // if(!file){
