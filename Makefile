@@ -1,4 +1,4 @@
-EXE ?= Simpler
+EXE ?= SSSimpler
 CXX ?= clang++
 
 ARCH := $(shell uname -m)
