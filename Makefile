@@ -1,5 +1,5 @@
 EXE ?= SSSimpler
-CXX ?= clang++
+CXX ?= g++
 
 ARCH := $(shell uname -m)
 
@@ -16,5 +16,5 @@ else
 
 endif
 all:
-	clang++ code/main.cpp -o $(EXE) -O3 -std=c++2a $(MARCH_FLAG) -pthread -flto -fno-exceptions -fno-rtti -DNDEBUG -ffast-math -funroll-loops
+	g++ code/main.cpp -o $(EXE) -O3 -std=c++2a $(MARCH_FLAG) -pthread -flto -fno-exceptions -fno-rtti -DNDEBUG -ffast-math -funroll-loops
 
