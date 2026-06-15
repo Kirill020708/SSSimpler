@@ -85,13 +85,11 @@ struct UCIcommunicationHepler {
         long long bSize = ll(MBsize) * 1024 * 1024;
         int TTEntrySize = sizeof(TableEntry);
 
-        transpositionTable.table.resize(bSize / TTEntrySize, TableEntry());
-        transpositionTable.table.shrink_to_fit();
-        transpositionTable.tableSize = transpositionTable.table.size();
+        transpositionTable.resize(bSize / TTEntrySize, searcher.threadNumber);
     }
 
     void clearHash() {
-        transpositionTable.table = vector<TableEntry>(transpositionTable.table.size(), TableEntry());
+        transpositionTable.clear(searcher.threadNumber);
     }
 
     void parseCommand(string command) {
