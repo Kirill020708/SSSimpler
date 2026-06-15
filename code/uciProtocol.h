@@ -306,27 +306,32 @@ struct UCIcommunicationHepler {
         if (mainCommand == "setoption") {
             if (tokens[2] == "HardNodesLimit") {
                 hardNodesOpt = stoi(tokens[4]);
+                return;
             }
             if (tokens[2] == "Normalize") {
                 if (tokens[4] == "true")
                     searcher.workers[0].doNormalization = true;
                 else
                     searcher.workers[0].doNormalization = false;
+                return;
             }
             if (tokens[2] == "Minimal") {
                 if (tokens[4] == "true")
                     searcher.minimal = true;
                 else
                     searcher.minimal = false;
+                return;
             }
             if (tokens[2] == "Threads") {
                 int thn = stoi(tokens[4]);
                 searcher.threadNumber = thn;
                 searcher.workers.resize(thn);
+                return;
             }
             if (tokens[2] == "Hash") {
                 int sz = stoi(tokens[4]);
                 reallocateHashMemory(sz);
+                return;
             }
             #if defined TUNE_MODE
             setParam(tokens[2], stoi(tokens[4]));
