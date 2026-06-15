@@ -28,8 +28,8 @@
 #define nmpBaseMargin 20 // 0 80
 #define nmpDepthMargin 1024 // 0 10240
 #define nmpDepth2Margin 0 // 0 10240
-#define nmpRbase 5120 // 0 10240 341
-#define nmpRdepth 205 // 0 1024
+#define nmpRbase 5120 // 0 10240 250
+#define nmpRdepth 205 // 0 1024 12
 #define nmpRimproving 0 // 0 3072
 #define nmpRcutnode 0 // -4096 4096
 #define nmpRmargin 200 // 50 500
@@ -101,19 +101,19 @@
 #define seeNBaseD2 0 // 0 500
 #define seeNHistoryD2 0 // 0 200
 
-#define lmrDivisor 341 // 0 2048
+#define lmrDivisor 341 // 0 2048 20
 #define lmrBase 512 // 0 4096
-#define lmrPv 1024 // 0 4096
-#define lmrHistory 1536 // 0 4096
-#define lmrImproving 512 // 0 4096
-#define lmrTTcapture 1024 // 0 4096
-#define lmrExact 1024 // 0 4096
-#define lmrCutnode 1024 // 0 4096
-#define lmrTtpv 1024 // 0 4096
-#define lmrCorrplex 0 // 0 4096
-#define lmrCapture 1024 // 0 4096
-#define lmrSee 2097 // 0 4096
-#define lmrKiller 1024 // 0 4096
+#define lmrPv 1024 // 0 4096 120
+#define lmrHistory 1536 // 0 4096 120
+#define lmrImproving 512 // 0 4096 120
+#define lmrTTcapture 1024 // 0 4096 120
+#define lmrExact 1024 // 0 4096 120
+#define lmrCutnode 1024 // 0 4096 120
+#define lmrTtpv 1024 // 0 4096 120
+#define lmrCorrplex 0 // 0 4096 120
+#define lmrCapture 1024 // 0 4096 120
+#define lmrSee 2097 // 0 4096 120
+#define lmrKiller 1024 // 0 4096 120
 
 #define historyBonusD0 0 // -1600 1600
 #define historyBonusD1 160 // 0 1600
@@ -123,7 +123,7 @@
 #define historyMaluseD2 0 // 0 1600
 
 #define aspirationWindowSize 25 // 15 200
-#define aspirationWindowMult 2048 // 1800 10240
+#define aspirationWindowMult 2048 // 1800 10240 200
 
 #define bmStab0 2560 // 300 5120 *
 #define bmStab1 1229 // 300 5120 *
@@ -138,11 +138,11 @@
 #define historyScorePly2 1024 // 0 2048
 #define historyScorePly4 1024 // 0 2048
 
-#define corrhistPawn 171 // 0 1024
-#define corrhistMinor 171 // 0 1024
-#define corrhistColor 171 // 0 1024
-#define corrhistFromTo 171 // 0 1024
-#define corrhistPly1 171 // 0 1024
+#define corrhistPawn 171 // 0 1024 12
+#define corrhistMinor 171 // 0 1024 12
+#define corrhistColor 171 // 0 1024 12
+#define corrhistFromTo 171 // 0 1024 12
+#define corrhistPly1 171 // 0 1024 12
 
 #define seePawn 100 // 0 300
 #define seeKnight 300 // 0 800
