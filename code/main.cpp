@@ -53,6 +53,7 @@ string squareToString(int square) {
 
 int main(int argc, char *argv[]) {
 	initLmrTable();
+	numa::init();
     // texelTuner.checkData();
     // evaluator.writeToFile("/Users/Apple/Desktop/projects/chessEngv2/apps/evalbase.txt");
     // evaluator.initFromFile("/Users/Apple/Desktop/projects/chessEngv2/apps/evalbase.txt");
@@ -68,6 +69,7 @@ int main(int argc, char *argv[]) {
     evaluator.init(splitStr(evaluationWeights, "|"));
 
     mainNnueEvaluator.initFromFile();
+    eval::initNetworks();
     mainBoard = Board();
 
     for (int i = 0; i < inputBuckets; i++) {
@@ -121,9 +123,9 @@ int main(int argc, char *argv[]) {
                     isOk = 0;
                 else {
                     searcher.iterativeDeepeningSearch(256, 1e6, 1e6, 500, 500);
-                    if (abs(searcher.workers[0].rootScore) >= 500) {
+                    if (abs(searcher.workers[0]->rootScore) >= 500) {
                         searcher.iterativeDeepeningSearch(256, 1e6, 1e6, 5000, 5000);
-                        if (abs(searcher.workers[0].rootScore) >= 1000)
+                        if (abs(searcher.workers[0]->rootScore) >= 1000)
                             isOk = 0;
                     }
                 }

@@ -80,7 +80,7 @@ struct Benchmark {
             // cout<<benchmarkfens[i]<<endl;
             mainOccuredPositionsHelper.occuredPositions[mainBoard.age] = mainBoard.getZobristKey();
             searcher.iterativeDeepeningSearch(depth, benchTime, benchTime, inf, inf);
-            nodes += searcher.workers[0].nodes;
+            nodes += searcher.workers[0]->nodes;
             // uciHelper.clearHash();
         }
         searcher.doInfoOutput = true;
