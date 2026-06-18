@@ -81,7 +81,7 @@ struct TranspositionTable {
         size_t bytes = size_t(tableSize) * sizeof(TableEntry);
         size_t pages = num_hugepages(bytes);
         size_t aligned_bytes = pages * HUGEPAGE_SIZE;
-        table = static_cast<TableEntry *>(aligned_alloc(HUGEPAGE_SIZE, bytes));
+        table = static_cast<TableEntry *>(aligned_alloc(HUGEPAGE_SIZE, aligned_bytes));
 #if defined(__linux__)
         madvise(table, bytes, MADV_HUGEPAGE);
 #endif
