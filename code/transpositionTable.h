@@ -116,7 +116,7 @@ struct TranspositionTable {
             else
                 score -= depthFromRoot;
         }
-        int index = (__uint128_t(key) * __uint128_t(tableSize)) >> 64;
+        ll index = (__uint128_t(key) * __uint128_t(tableSize)) >> 64;
         uint16_t key16 = key & b16;
         if (table[index].flag.type() != NONE) {
             if (table[index].key == key16) {
@@ -132,7 +132,7 @@ struct TranspositionTable {
     }
 
     inline void writeStaticEval(ull key, int eval) {
-        int index = (__uint128_t(key) * __uint128_t(tableSize)) >> 64;
+        ll index = (__uint128_t(key) * __uint128_t(tableSize)) >> 64;
         uint16_t key16 = key & b16;
         if (table[index].flag.type() != NONE && table[index].key == key16)
             table[index].eval = eval;
@@ -141,7 +141,7 @@ struct TranspositionTable {
     inline TableEntry get(Board &board, ull key, int depthFromRoot) {
         // if (tableSize == 0)
         //     return TableEntry();
-        int index = (__uint128_t(key) * __uint128_t(tableSize)) >> 64;
+        ll index = (__uint128_t(key) * __uint128_t(tableSize)) >> 64;
         uint16_t key16 = key & b16;
         if (table[index].flag.type() == NONE)
             return TableEntry();
