@@ -56,9 +56,9 @@ struct DataGenerator {
             curMoveNumber++;
             if (curMoveNumber <= curRandomMoveCount) {
 
-                searcher.workers[0].moveListGenerator.generateMovesForPerft(mainBoard, mainBoard.boardColor, 0);
-                int movesCount = searcher.workers[0].moveListGenerator.moveListSize[0];
-                Move randomMove = searcher.workers[0].moveListGenerator.moveList[0][rngT() % movesCount];
+                searcher.workers[0]->moveListGenerator.generateMovesForPerft(mainBoard, mainBoard.boardColor, 0);
+                int movesCount = searcher.workers[0]->moveListGenerator.moveListSize[0];
+                Move randomMove = searcher.workers[0]->moveListGenerator.moveList[0][rngT() % movesCount];
                 mainBoard.makeMove(randomMove);
 
                 if (curMoveNumber == curRandomMoveCount) {
@@ -134,7 +134,7 @@ struct DataGenerator {
             } else {
                 positionsNumber++;
                 searcher.datagenSearch(256, softNodesLimit, hardNodesLimit);
-                int score = searcher.workers[0].rootScore;
+                int score = searcher.workers[0]->rootScore;
 
                 if (firstPos && score >= 1000) {
                     resultsBin.clear();
@@ -149,7 +149,7 @@ struct DataGenerator {
                 // 	results[0].push_back(mainBoard.generateFEN()+" | "+to_string(score)+" | ");
                 // }
 
-                Move bestMove = searcher.workers[0].bestMove;
+                Move bestMove = searcher.workers[0]->bestMove;
                 int start = bestMove.getStartSquare();
                 int target = bestMove.getTargetSquare();
                 int prom = bestMove.getPromotionFlag();
@@ -189,7 +189,7 @@ struct DataGenerator {
                 resultsBin.push_back(score & 255);
                 resultsBin.push_back((score >> 8) & 255);
 
-                mainBoard.makeMove(searcher.workers[0].bestMove, searcher.workers[0].nnueEvaluator);
+                mainBoard.makeMove(searcher.workers[0]->bestMove, searcher.workers[0]->nnueEvaluator);
 
                 if (score >= resignScore)
                     winningStreakW++;
@@ -208,7 +208,7 @@ struct DataGenerator {
             }
             // cout<<curMoveNumber<<'\n';
 
-            if (searcher.workers[0].moveListGenerator.isStalled(mainBoard, mainBoard.boardColor) ||
+            if (searcher.workers[0]->moveListGenerator.isStalled(mainBoard, mainBoard.boardColor) ||
                 evaluator.insufficientMaterialDraw(mainBoard)) {
 
                 int resultEval = evaluator.evaluateStalledPosition(mainBoard, mainBoard.boardColor, 0);

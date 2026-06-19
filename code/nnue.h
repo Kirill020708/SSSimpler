@@ -11,6 +11,7 @@
 
 #include <array>
 #include "simd.h"
+#include "numa.h"
 
 #define INCBIN_SILENCE_BITCODE_WARNING
 #include "incbin.h"
@@ -46,19 +47,25 @@ int inputBucketBoard[2][64] = {
 };
 
 bool initialized = false;
-alignas(64) __int16_t w0[inputBuckets][inputSize][hl1Size];
-alignas(64) __int16_t b0[hl1Size];
+
+struct alignas(64) Network {
+    alignas(64) __int16_t w0[inputBuckets][inputSize][hl1Size];
+    alignas(64) __int16_t b0[hl1Size];
 
 #if defined(AVX) || defined(NEON)
-alignas(64) __int8_t w1[outputBuckets * inputBuckets][hl1Size / 4][w1BlockSize];
+    alignas(64) __int8_t w1[outputBuckets * inputBuckets][hl1Size / 4][w1BlockSize];
 #else
-alignas(64) __int8_t w1[outputBuckets * inputBuckets][hl2Size][hl1Size];
+    alignas(64) __int8_t w1[outputBuckets * inputBuckets][hl2Size][hl1Size];
 #endif
-alignas(64) int b1[outputBuckets * inputBuckets][hl2Size];
-alignas(64) int w2[outputBuckets * inputBuckets][hl2Size * 2][hl3Size];
-alignas(64) int b2[outputBuckets * inputBuckets][hl3Size];
-alignas(64) int w3[outputBuckets * inputBuckets][hl3Size];
-alignas(64) int b3[outputBuckets * inputBuckets];
+    alignas(64) int b1[outputBuckets * inputBuckets][hl2Size];
+    alignas(64) int w2[outputBuckets * inputBuckets][hl2Size * 2][hl3Size];
+    alignas(64) int b2[outputBuckets * inputBuckets][hl3Size];
+    alignas(64) int w3[outputBuckets * inputBuckets][hl3Size];
+    alignas(64) int b3[outputBuckets * inputBuckets];
+};
+
+Network defaultNetwork;
+thread_local const Network *weights = &defaultNetwork;
 
 // #define PERM_COMP
 
@@ -216,6 +223,7 @@ struct FinnyTable {
     alignas(64) __int16_t accum[hl1Size];
 
     FinnyTable() {
+        const auto &b0 = weights->b0;
 
         #if defined(AVX)
             for (int i = 0; i < hl1Size; i += vecsize / i16s) {
@@ -232,6 +240,7 @@ struct FinnyTable {
     }
 
     void clear() {
+        const auto &b0 = weights->b0;
 
         #if defined(AVX)
             for (int i = 0; i < hl1Size; i += vecsize / i16s) {
@@ -249,6 +258,7 @@ struct FinnyTable {
 
 
     void Sub(int updI, int buckets) {
+        const auto &w0 = weights->w0;
 
         #ifdef AVX
             for (int i = 0; i < hl1Size; i += vecsize / i16s) {
@@ -269,6 +279,7 @@ struct FinnyTable {
     }
 
     void Add(int updI, int buckets) {
+        const auto &w0 = weights->w0;
 
         #ifdef AVX
             for (int i = 0; i < hl1Size; i += vecsize / i16s) {
@@ -345,8 +356,6 @@ int nnzPermutation[] = {
 };
 
 
-int nnzTotal = 0, nnzCount = 0;
-
 struct NNUEevaluator {
 
     alignas(64) __int16_t hlSumW[maxDepth + 1][hl1Size];
@@ -363,6 +372,7 @@ struct NNUEevaluator {
     pair<int, int> bucketsStack[maxDepth + 1];
 
     NNUEevaluator() {
+        const auto &b0 = weights->b0;
         ply = 0;
         updateIter[0] = 0;
         lastCleanAccumulator[0] = 0;
@@ -371,6 +381,7 @@ struct NNUEevaluator {
     }
 
     void clear(int idx) {
+        const auto &b0 = weights->b0;
         #ifdef AVX
             for (int i = 0; i < hl1Size; i += vecsize / i16s) {
                 store((vec *)&hlSumW[idx][i], load((vec *)&b0[i]));
@@ -400,6 +411,7 @@ struct NNUEevaluator {
     }
 
     void Add(int idx, pair<int, int>updI, pair<ll, ll>buckets) {
+        const auto &w0 = weights->w0;
         #ifdef AVX
             for (int i = 0; i < hl1Size; i += vecsize / i16s) {
 
@@ -429,6 +441,7 @@ struct NNUEevaluator {
     
 
     void SubAdd(int idx, pair<ll, ll>buckets) {
+        const auto &w0 = weights->w0;
         #ifdef AVX
             for (int i = 0; i < hl1Size; i += vecsize / i16s) {
 
@@ -465,6 +478,7 @@ struct NNUEevaluator {
     }
 
     void SubSubAdd(int idx, pair<ll, ll>buckets) {
+        const auto &w0 = weights->w0;
         #ifdef AVX
             for (int i = 0; i < hl1Size; i += vecsize / i16s) {
 
@@ -510,6 +524,7 @@ struct NNUEevaluator {
     }
 
     void SubAddSubAdd(int idx, pair<ll, ll>buckets) {
+        const auto &w0 = weights->w0;
         #ifdef AVX
             for (int i = 0; i < hl1Size; i += vecsize / i16s) {
 
@@ -743,6 +758,12 @@ struct NNUEevaluator {
     }
 
     int evaluate(int color, int bucket) {
+        const auto &w1 = weights->w1;
+        const auto &b1 = weights->b1;
+        const auto &w2 = weights->w2;
+        const auto &b2 = weights->b2;
+        const auto &w3 = weights->w3;
+        const auto &b3 = weights->b3;
 
         cleanAccumulators();
 
@@ -796,8 +817,6 @@ struct NNUEevaluator {
         alignas(64) uint16_t nzIndices[hl1Size / 4 + 8];
         int nzCount = findNonZeroIndices(packedFt, nzIndices);
 
-        nnzTotal += nzCount;
-        nnzCount++;
 
         int nzi = 0;
         for (; nzi + 2 * L2_UNROLL <= nzCount; nzi += 2 * L2_UNROLL) {
@@ -1010,7 +1029,7 @@ struct NNUEevaluator {
         return x;
     }
 
-    void initFromFile() {
+    void loadNetwork(Network &net) {
         // ifstream file(path,ios::binary);
 
         // if(!file){
@@ -1018,7 +1037,14 @@ struct NNUEevaluator {
         // 	return;
         // }
 
-        initialized = true;
+        auto &w0 = net.w0;
+        auto &b0 = net.b0;
+        auto &w1 = net.w1;
+        auto &b1 = net.b1;
+        auto &w2 = net.w2;
+        auto &b2 = net.b2;
+        auto &w3 = net.w3;
+        auto &b3 = net.b3;
 
         vector<int8_t> data;
         size_t file_size = gNETWORKSize;
@@ -1107,9 +1133,40 @@ struct NNUEevaluator {
 
         for (int bucket = 0; bucket < outputBuckets * inputBuckets; bucket++)
             b3[bucket] = getValue(data, iter, 32);
+    }
 
+    void initFromFile() {
+        initialized = true;
+        loadNetwork(defaultNetwork);
         clear(0);
     }
 };
 
 NNUEevaluator mainNnueEvaluator;
+
+namespace eval {
+#ifdef USE_LIBNUMA
+    unique_ptr<numa::NumaReplicated<Network>> nodeNetworks;
+
+    void initNetworks() {
+        if (numa::nodeCount() <= 1)
+            return;
+        nodeNetworks = make_unique<numa::NumaReplicated<Network>>();
+        for (int node = 0; node < numa::nodeCount(); node++)
+            mainNnueEvaluator.loadNetwork(*nodeNetworks->get(unsigned(node)));
+    }
+
+    const Network *getNetwork(unsigned numaId) {
+        if (!nodeNetworks)
+            return &defaultNetwork;
+        return nodeNetworks->get(numaId);
+    }
+#else
+    void initNetworks() {}
+
+    const Network *getNetwork(unsigned numaId) {
+        (void)numaId;
+        return &defaultNetwork;
+    }
+#endif
+}

@@ -1003,7 +1003,7 @@ struct Worker {
         hardTimeBound = 1e9;
 
         for (int depth = 1; depth <= maxDepth; depth++) {
-            // workers[0].nnueEvaluator.printAccum();
+            // workers[0]->nnueEvaluator.printAccum();
             // cout<<'\n';
             int alpha = -MATE_SCORE, beta = MATE_SCORE;
 
@@ -1026,8 +1026,7 @@ struct Worker {
     bool doNormalization = true;
     int basetime = 1e9;
 
-    void IDsearch(Board &board, int maxDepth, ull softBound, ull hardBound, ull nodesLimit, ull nodesH, bool isMainThread, bool printUCI, vector<Worker> &workers) {
-        
+    void IDsearch(Board &board, int maxDepth, ull softBound, ull hardBound, ull nodesLimit, ull nodesH, bool isMainThread, bool printUCI, vector<Worker*> &workers) {
         nodesLim = nodesH;
         nodes = 0;
         hardTimeBound = hardBound;
@@ -1051,7 +1050,7 @@ struct Worker {
             rootNodes[i] = 0;
 
         for (int depth = 1; depth <= maxDepth; depth++) {
-            // workers[0].nnueEvaluator.printAccum();
+            // workers[0]->nnueEvaluator.printAccum();
             // cout<<'\n';
             int alpha = -MATE_SCORE, beta = MATE_SCORE;
 
@@ -1083,8 +1082,8 @@ struct Worker {
                 times[depth] = max(1ll, timeThinked - prevTimeThinked);
                 prevTimeThinked = timeThinked;
 
-                // for(int i=1;i<workers[0].pvLineSize;i++)
-                //  cout<<workers[0].pvLine[i].convertToUCI()<<' ';
+                // for(int i=1;i<workers[0]->pvLineSize;i++)
+                //  cout<<workers[0]->pvLine[i].convertToUCI()<<' ';
 
                 bool stopIDsearch = false;
 
@@ -1140,7 +1139,7 @@ struct Worker {
 
                 ull totalNodes = 0;
                 for (int i = 0; i < workers.size(); i++)
-                    totalNodes += workers[i].nodes;
+                    totalNodes += workers[i]->nodes;
 
                 if (printUCI && (!minimal || stopIDsearch || depth == maxDepth)) {
                     cout << "info depth " << depth;
@@ -1195,48 +1194,119 @@ bool needsSearch = false;
 struct Searcher {
     bool doInfoOutput = true;
     int threadNumber = 1;
-    vector<Worker> workers;
+    vector<Worker*> workers;
     bool stopIDsearch;
     bool minimal = false;
 
-    Searcher() {
-        workers.resize(threadNumber);
-    }
+    vector<thread> threadPool;
+    mutex poolMutex;
+    condition_variable poolCV;
+    int searchGen = 0;
+    int activeWorkers = 0;
+    bool quitThreads = false;
 
     int maxDepth;
     ull softBound, hardBound, nodesLimit, nodesH;
 
-    void iterativeDeepeningSearch() {
-        workers[0].nodesLim = nodesH;
-        stopIDsearch = false;
-        int color = mainBoard.boardColor;
-        vector<thread> threadPool(threadNumber);
-        vector<Board> boards(threadNumber, mainBoard);
-        for (int i = 0; i < threadNumber; i++) {
-            workers[i].nodes = 0;
-            workers[i].bestMove = Move();
-            workers[i].minimal = minimal;
-            workers[i].stopSearch = false;
-            workers[i].nnueEvaluator = mainNnueEvaluator;
-            workers[i].occuredPositionsHelper = mainOccuredPositionsHelper;
-            mainBoard.initNNUE(workers[i].nnueEvaluator);
-            for (ll j = 0; j < 256; j++) {
-                for (ll j1 = 0; j1 < 2; j1++) {
-                    workers[i].killers[j][j1] = Move();
-                    workers[i].killersAge[j][j1] = 0;
-                }
+    Searcher() {
+        setThreads(threadNumber);
+    }
+
+    ~Searcher() {
+        stopThreadPool();
+        for (Worker *worker : workers)
+            numa::freeOnNode(worker);
+    }
+
+    void setThreads(int n) {
+        stopThreadPool();
+        for (Worker *worker : workers)
+            numa::freeOnNode(worker);
+        workers.clear();
+        threadNumber = n;
+        for (int i = 0; i < n; i++)
+            workers.push_back(numa::allocOnNode<Worker>(i));
+        startThreadPool();
+    }
+
+    void startThreadPool() {
+        quitThreads = false;
+        searchGen = 0;
+        activeWorkers = 0;
+        for (int i = 0; i < threadNumber; i++)
+            threadPool.emplace_back(&Searcher::threadLoop, this, i);
+    }
+
+    void stopThreadPool() {
+        if (threadPool.empty())
+            return;
+        {
+            lock_guard<mutex> lock(poolMutex);
+            quitThreads = true;
+        }
+        poolCV.notify_all();
+        for (thread &t : threadPool)
+            t.join();
+        threadPool.clear();
+    }
+
+    void threadLoop(int threadId) {
+        numa::bindThread(threadId);
+        int lastGen = 0;
+        while (true) {
+            {
+                unique_lock<mutex> lock(poolMutex);
+                poolCV.wait(lock, [&]{ return quitThreads || searchGen != lastGen; });
+                if (quitThreads)
+                    return;
+                lastGen = searchGen;
+            }
+            runWorker(threadId);
+            {
+                lock_guard<mutex> lock(poolMutex);
+                if (--activeWorkers == 0)
+                    poolCV.notify_all();
+            }
+        }
+    }
+
+    void runWorker(int threadId) {
+        Worker *worker = workers[threadId];
+        weights = eval::getNetwork(threadId);
+
+        worker->nodes = 0;
+        worker->bestMove = Move();
+        worker->minimal = minimal;
+        worker->stopSearch = false;
+        worker->nnueEvaluator = mainNnueEvaluator;
+        worker->occuredPositionsHelper = mainOccuredPositionsHelper;
+        Board board = mainBoard;
+        board.initNNUE(worker->nnueEvaluator);
+        for (ll j = 0; j < 256; j++) {
+            for (ll j1 = 0; j1 < 2; j1++) {
+                worker->killers[j][j1] = Move();
+                worker->killersAge[j][j1] = 0;
             }
         }
 
-        for (int i = 1; i < threadNumber; i++)
-            threadPool[i] = thread(&Worker::IDsearch, &workers[i], ref(boards[i]), maxDepth, softBound, hardBound, nodesLimit, nodesH, false, 0, ref(workers));
+        bool isMainThread = threadId == 0;
+        worker->IDsearch(board, maxDepth, softBound, hardBound, nodesLimit, nodesH, isMainThread, isMainThread && doInfoOutput, workers);
 
-        workers[0].IDsearch(ref(boards[0]), maxDepth, softBound, hardBound, nodesLimit, nodesH, true, doInfoOutput, ref(workers));
+        if (isMainThread)
+            for (int i = 1; i < threadNumber; i++)
+                workers[i]->stopSearch = true;
+    }
 
-        for (int i = 1; i < threadNumber; i++) {
-            workers[i].stopSearch = true;
-            threadPool[i].join();
+    void iterativeDeepeningSearch() {
+        stopIDsearch = false;
+        {
+            lock_guard<mutex> lock(poolMutex);
+            activeWorkers = threadNumber;
+            searchGen++;
         }
+        poolCV.notify_all();
+        unique_lock<mutex> lock(poolMutex);
+        poolCV.wait(lock, [&]{ return activeWorkers == 0; });
     }
 
     void iterativeDeepeningSearch(int maxDepth_, ull softBound_, ull hardBound_, ull nodesLimit_, ull nodesH_) {
@@ -1260,7 +1330,7 @@ struct Searcher {
     }
 
     void datagenSearch(int maxDepth, ull nodesLimit, ull nodesH) {
-        workers[0].nodesLim = nodesH;
+        workers[0]->nodesLim = nodesH;
         stopIDsearch = false;
         int color = mainBoard.boardColor;
         vector<thread> threadPool(threadNumber);
@@ -1270,17 +1340,17 @@ struct Searcher {
         cleanOccuredPositionsHelper.cleanStack(mainBoard);
 
         for (int i = 0; i < threadNumber; i++) {
-            workers[i].nodes = 0;
-            workers[i].bestMove = Move();
-            workers[i].minimal = minimal;
-            workers[i].stopSearch = false;
-            workers[i].nnueEvaluator = mainNnueEvaluator;
-            workers[i].occuredPositionsHelper = cleanOccuredPositionsHelper;
-            mainBoard.initNNUE(workers[i].nnueEvaluator);
+            workers[i]->nodes = 0;
+            workers[i]->bestMove = Move();
+            workers[i]->minimal = minimal;
+            workers[i]->stopSearch = false;
+            workers[i]->nnueEvaluator = mainNnueEvaluator;
+            workers[i]->occuredPositionsHelper = cleanOccuredPositionsHelper;
+            mainBoard.initNNUE(workers[i]->nnueEvaluator);
             for (ll j = 0; j < 256; j++) {
                 for (ll j1 = 0; j1 < 2; j1++) {
-                    workers[i].killers[j][j1] = Move();
-                    workers[i].killersAge[j][j1] = 0;
+                    workers[i]->killers[j][j1] = Move();
+                    workers[i]->killersAge[j][j1] = 0;
                 }
             }
         }
@@ -1288,10 +1358,10 @@ struct Searcher {
         // for (int i = 1; i < threadNumber; i++)
         //     threadPool[i] = thread(&Worker::IDsearch, &workers[i], ref(boards[i]), maxDepth, softBound, hardBound, nodesLimit, nodesH, false, 0, ref(workers));
 
-        workers[0].IDsearchDatagen(ref(boards[0]), maxDepth, nodesLimit, nodesH);
+        workers[0]->IDsearchDatagen(ref(boards[0]), maxDepth, nodesLimit, nodesH);
 
         // for (int i = 1; i < threadNumber; i++) {
-        //  workers[i].stopSearch = true;
+        //  workers[i]->stopSearch = true;
         //  threadPool[i].join();
         // }
     }

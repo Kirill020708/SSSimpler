@@ -1,6 +1,12 @@
 EXE ?= SSSimpler
 CXX ?= clang++
 
+USE_LIBNUMA ?= off
+NUMA_FLAGS :=
+ifeq ($(USE_LIBNUMA),on)
+    NUMA_FLAGS := -DUSE_LIBNUMA -lnuma
+endif
+
 ARCH := $(shell uname -m)
 
 # Set march flags based on architecture
@@ -16,5 +22,5 @@ else
 
 endif
 all:
-	clang++ code/main.cpp -o $(EXE) -O3 -std=c++2a $(MARCH_FLAG) -pthread -flto -fno-exceptions -fno-rtti -DNDEBUG -ffast-math -funroll-loops
+	clang++ code/main.cpp -o $(EXE) -O3 -std=c++2a $(MARCH_FLAG) -pthread -flto -fno-exceptions -fno-rtti -DNDEBUG -ffast-math -funroll-loops $(NUMA_FLAGS)
 

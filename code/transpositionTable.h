@@ -9,6 +9,11 @@
 
 #endif /* DECLARS */
 
+#include <cstdlib>
+#if defined(__linux__)
+#include <sys/mman.h>
+#endif
+
 struct Flag {
     int8_t flags = 0;
 
@@ -55,13 +60,54 @@ struct __attribute__ ((packed)) TableEntry {
 bool alwaysReplace = false;
 
 struct TranspositionTable {
+    constexpr static size_t HUGEPAGE_SIZE = 2 << 20;
+
     ll tableSize = 0;
-    vector<TableEntry> table;
+    TableEntry *table = nullptr;
     int b16 = 0b1111'1111'1111'1111;
 
     // mutex TTmutex;
 
-    inline void write(Board &board, ull key, int score, int eval, int depth, int type, int age, Move bestMove, int depthFromRoot, bool ttpv) {
+    ~TranspositionTable() {
+        free(table);
+    }
+
+    void resize(ll numEntries, int threadCount) {
+        free(table);
+        tableSize = numEntries;
+        auto num_hugepages = [](size_t bytes) {
+            return bytes / HUGEPAGE_SIZE + (bytes % HUGEPAGE_SIZE != 0);
+        };
+        size_t bytes = size_t(tableSize) * sizeof(TableEntry);
+        size_t pages = num_hugepages(bytes);
+        size_t aligned_bytes = pages * HUGEPAGE_SIZE;
+        table = static_cast<TableEntry *>(aligned_alloc(HUGEPAGE_SIZE, aligned_bytes));
+#if defined(__linux__)
+        madvise(table, bytes, MADV_HUGEPAGE);
+#endif
+        clear(threadCount);
+    }
+
+    void clear(int threadCount) {
+        assert(table && tableSize);
+        threadCount = clamp<ll>(threadCount, 1, tableSize);
+
+        vector<thread> pool;
+        pool.reserve(threadCount);
+        for (int t = 0; t < threadCount; t++) {
+            pool.emplace_back([this, t, threadCount]() {
+                ll lo = tableSize * t / threadCount;
+                ll hi = min<ll>(tableSize, tableSize * (t + 1) / threadCount);
+                for (ll i = lo; i < hi; i++)
+                    new (table + i) TableEntry();
+            });
+        }
+        for (thread &th : pool)
+            th.join();
+    }
+
+    inline void write(Board &board, ull key, int score, int eval, int depth, int type, int age, Move bestMove,
+                      int depthFromRoot, bool ttpv) {
         // if (tableSize == 0)
         //     return;
         if (abs(score) >= MATE_SCORE_MAX_PLY){
@@ -70,7 +116,7 @@ struct TranspositionTable {
             else
                 score -= depthFromRoot;
         }
-        int index = (__uint128_t(key) * __uint128_t(tableSize)) >> 64;
+        ll index = (__uint128_t(key) * __uint128_t(tableSize)) >> 64;
         uint16_t key16 = key & b16;
         if (table[index].flag.type() != NONE) {
             if (table[index].key == key16) {
@@ -86,7 +132,7 @@ struct TranspositionTable {
     }
 
     inline void writeStaticEval(ull key, int eval) {
-        int index = (__uint128_t(key) * __uint128_t(tableSize)) >> 64;
+        ll index = (__uint128_t(key) * __uint128_t(tableSize)) >> 64;
         uint16_t key16 = key & b16;
         if (table[index].flag.type() != NONE && table[index].key == key16)
             table[index].eval = eval;
@@ -95,7 +141,7 @@ struct TranspositionTable {
     inline TableEntry get(Board &board, ull key, int depthFromRoot) {
         // if (tableSize == 0)
         //     return TableEntry();
-        int index = (__uint128_t(key) * __uint128_t(tableSize)) >> 64;
+        ll index = (__uint128_t(key) * __uint128_t(tableSize)) >> 64;
         uint16_t key16 = key & b16;
         if (table[index].flag.type() == NONE)
             return TableEntry();
@@ -118,7 +164,6 @@ struct TranspositionTable {
         // if (tableSize == 0)
         //     return;
         __builtin_prefetch(&table[(__uint128_t(key) * __uint128_t(tableSize)) >> 64]);
-
     }
 
     int getHashfull() {

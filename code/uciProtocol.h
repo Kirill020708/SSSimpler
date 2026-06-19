@@ -85,13 +85,16 @@ struct UCIcommunicationHepler {
         long long bSize = ll(MBsize) * 1024 * 1024;
         int TTEntrySize = sizeof(TableEntry);
 
-        transpositionTable.table.resize(bSize / TTEntrySize, TableEntry());
-        transpositionTable.table.shrink_to_fit();
-        transpositionTable.tableSize = transpositionTable.table.size();
+        transpositionTable.resize(bSize / TTEntrySize, searcher.threadNumber);
     }
 
     void clearHash() {
-        transpositionTable.table = vector<TableEntry>(transpositionTable.table.size(), TableEntry());
+        transpositionTable.clear(searcher.threadNumber);
+    }
+
+    void stopSearch() {
+        searcher.workers[0]->stopSearch = true;
+        lock_guard<mutex> lock(searchListenerMutex);
     }
 
     void parseCommand(string command) {
@@ -99,8 +102,10 @@ struct UCIcommunicationHepler {
             return;
         vector<string> tokens = splitStr(command, " ");
         string mainCommand = tokens[0];
-        if (mainCommand == "quit")
-            exit(0);
+        if (mainCommand == "quit") {
+            stopSearch();
+            _Exit(0);
+        }
         if (mainCommand == "dbg") {
             // printDesk01(mainBoard.rooks);
             // perftester.perfTest(256);
@@ -273,9 +278,9 @@ struct UCIcommunicationHepler {
             // cout<<timeToThink<<'\n';
             int softBound = inf, hardBound = inf;
             if (timeBound)
-                searcher.workers[0].basetime = basetime;
+                searcher.workers[0]->basetime = basetime;
             else
-                searcher.workers[0].basetime = 1e9;
+                searcher.workers[0]->basetime = 1e9;
             if (wtime != -1) {
                 softBound = timeToThink;
                 hardBound = max(min(basetime / 2, basetime - 10), 1);
@@ -299,9 +304,7 @@ struct UCIcommunicationHepler {
             perftester.perfTest(stoi(tokens[1]));
         }
         if (mainCommand == "stop") {
-            searcher.workers[0].stopSearch = true;
-            if (searcherThread.joinable())
-                searcherThread.join();
+            stopSearch();
         }
         if (mainCommand == "setoption") {
             if (tokens[2] == "HardNodesLimit") {
@@ -310,28 +313,23 @@ struct UCIcommunicationHepler {
             }
             if (tokens[2] == "Normalize") {
                 if (tokens[4] == "true")
-                    searcher.workers[0].doNormalization = true;
+                    searcher.workers[0]->doNormalization = true;
                 else
-                    searcher.workers[0].doNormalization = false;
-                return;
+                    searcher.workers[0]->doNormalization = false;
             }
             if (tokens[2] == "Minimal") {
                 if (tokens[4] == "true")
                     searcher.minimal = true;
                 else
                     searcher.minimal = false;
-                return;
             }
             if (tokens[2] == "Threads") {
                 int thn = stoi(tokens[4]);
-                searcher.threadNumber = thn;
-                searcher.workers.resize(thn);
-                return;
+                searcher.setThreads(thn);
             }
             if (tokens[2] == "Hash") {
                 int sz = stoi(tokens[4]);
                 reallocateHashMemory(sz);
-                return;
             }
             #if defined TUNE_MODE
             setParam(tokens[2], stoi(tokens[4]));
