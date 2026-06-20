@@ -908,9 +908,6 @@ struct NNUEevaluator {
         alignas(64) uint16_t nzIndices[hl1Size / 4 + 8];
         int nzCount = findNonZeroIndices(packedFt, nzIndices);
 
-        nnzTotal += nzCount;
-        nnzCount++;
-
         int nzi = 0;
         for (; nzi + 2 * L2_UNROLL <= nzCount; nzi += 2 * L2_UNROLL) {
             for (int u = 0; u < L2_UNROLL; u++) {
