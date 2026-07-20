@@ -1166,9 +1166,11 @@ struct Worker {
                     cout << " time " << timeThinked;
                     cout << " pv ";
                     
-                    reverse(searchStack[0].pvLine.begin(), searchStack[0].pvLine.end());
-                    for (auto move:searchStack[0].pvLine)
-                    cout << move.convertToUCI() << ' ';
+                    // reverse(searchStack[0].pvLine.begin(), searchStack[0].pvLine.end());
+                    // for (auto move:searchStack[0].pvLine)
+                    // cout << move.convertToUCI() << ' ';
+
+                    cout << bestMove.convertToUCI();
                     cout << endl;
                 }
 
