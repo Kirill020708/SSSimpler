@@ -1,5 +1,5 @@
 EXE ?= SSSimpler
-CXX ?= clang++
+CXX = clang++
 
 USE_LIBNUMA ?= off
 NUMA_FLAGS :=
@@ -21,6 +21,16 @@ else
     MARCH_FLAG := -march=native
 
 endif
-all:
-	clang++ code/main.cpp -o $(EXE) -O3 -std=c++2a $(MARCH_FLAG) -pthread -flto -fno-exceptions -fno-rtti -DNDEBUG -ffast-math -funroll-loops $(NUMA_FLAGS)
 
+CXXFLAGS =  -O3 -std=c++2a $(MARCH_FLAG) -pthread -fno-exceptions -fno-rtti -DNDEBUG -ffast-math -funroll-loops $(NUMA_FLAGS)
+
+
+all:
+	rm -f $(EXE) $(EXE)_pgo $(EXE).profdata default.profraw
+	$(CXX) $(CXXFLAGS) -fprofile-generate code/main.cpp -o $(EXE)_pgo
+	LLVM_PROFILE_FILE="default.profraw" ./$(EXE)_pgo bench
+	llvm-profdata merge -o $(EXE).profdata default.profraw
+	$(CXX) $(CXXFLAGS) -fprofile-use=$(EXE).profdata code/main.cpp -o $(EXE)
+	rm -f $(EXE)_pgo default.profraw
+
+.PHONY: all
