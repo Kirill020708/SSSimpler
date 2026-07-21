@@ -26,10 +26,10 @@ CXXFLAGS =  -O3 -std=c++2a $(MARCH_FLAG) -pthread -fno-exceptions -fno-rtti -DND
 
 all:
 	rm -f $(EXE) $(EXE)_pgo $(EXE).profdata default.profraw
-	clang++ $(CXXFLAGS) -fprofile-generate code/main.cpp -o $(EXE)_pgo
+	clang++ $(CXXFLAGS) -fprofile-instr-generate code/main.cpp -o $(EXE)_pgo
 	LLVM_PROFILE_FILE="default.profraw" ./$(EXE)_pgo bench
 	llvm-profdata merge -o $(EXE).profdata default.profraw
-	clang++ $(CXXFLAGS) -fprofile-use=$(EXE).profdata code/main.cpp -o $(EXE)
+	clang++ $(CXXFLAGS) -fprofile-instr-use=$(EXE).profdata code/main.cpp -o $(EXE)
 	rm -f $(EXE)_pgo default.profraw
 
 .PHONY: all
