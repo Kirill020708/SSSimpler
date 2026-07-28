@@ -8,7 +8,7 @@ Neural net, architecture is (768x8hm->1024)x2-pw->(16-dual->32-crelu->1)x(8x8).
 ## Building
 Just run `make`
 ## Strength
-Yet to be tested
+Yet to be tested, estimated 3650 CCRL blitz
 ## License
 The code is licensed under the GPLv3 license. Full text can be found in LICENSE in the project root.
 ## Credit
