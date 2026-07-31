@@ -117,7 +117,7 @@ struct UCIcommunicationHepler {
             // return;
         }
         if (mainCommand == "uci") {
-            cout << "id name Simpler 1" << endl;
+            cout << "id name Simpler 2.0.0" << endl;
             cout << "id author Kirill020708\n" << endl;
 
             cout << "option name HardNodesLimit type spin default 1000000000000000000 min 1 max 1000000000000000000" << endl;
