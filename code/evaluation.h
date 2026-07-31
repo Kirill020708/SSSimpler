@@ -2,56 +2,13 @@
 
 #pragma once
 
-#ifndef BOARD
-#define BOARD
-
 #include "board.h"
-
-#endif /* BOARD */
-
-#ifndef BOARDHELP
-#define BOARDHELP
-
 #include "boardHelper.h"
-
-#endif /* BOARDHELP */
-
-#ifndef PIECESQTABLE
-#define PIECESQTABLE
-
 #include "pieceSquareTable.h"
-
-#endif /* PIECESQTABLE */
-
-#ifndef DECLARS
-#define DECLARS
-
 #include "declars.h"
-
-#endif /* DECLARS */
-
-#ifndef TRANSPOSTABLE
-#define TRANSPOSTABLE
-
 #include "transpositionTable.h"
-
-#endif /* TRANSPOSTABLE */
-
-#ifndef NNUE
-#define NNUE
-
 #include "nnue.h"
-
-#endif /* NNUE */
-
-
-#ifndef HISTORY
-#define HISTORY
-
 #include "historyHelper.h"
-
-#endif /* HISTORY */
-
 
 struct Evaluator {
 

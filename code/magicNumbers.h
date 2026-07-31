@@ -2,12 +2,7 @@
 
 #pragma once
 
-#ifndef BITBOARD
-#define BITBOARD
-
 #include "bitboard.h"
-
-#endif /* BITBOARD */
 
 struct Magics {
     ull edgeU, edgeD, edgeL, edgeR;

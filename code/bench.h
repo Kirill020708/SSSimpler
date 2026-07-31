@@ -1,16 +1,7 @@
-#ifndef SEARCHER
-#define SEARCHER
+#pragma once
 
 #include "searcher.h"
-
-#endif /* SEARCHER */
-
-#ifndef UCI
-#define UCI
-
 #include "uciProtocol.h"
-
-#endif /* UCI */
 
 struct Benchmark {
 

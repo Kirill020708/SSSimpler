@@ -2,13 +2,7 @@
 
 #pragma once
 
-#ifndef DECLARS
-#define DECLARS
-
 #include "declars.h"
-
-#endif /* DECLARS */
-
 #include <array>
 #include "simd.h"
 #include "numa.h"

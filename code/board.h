@@ -2,47 +2,12 @@
 
 #pragma once
 
-#ifndef MOVE
-#define MOVE
-
 #include "move.h"
-
-#endif /* MOVE */
-
-#ifndef BITBOARD
-#define BITBOARD
-
 #include "bitboard.h"
-
-#endif /* BITBOARD */
-
-#ifndef BOARDHELP
-#define BOARDHELP
-
 #include "boardHelper.h"
-
-#endif /* BOARDHELP */
-
-#ifndef PIECESQTABLE
-#define PIECESQTABLE
-
 #include "pieceSquareTable.h"
-
-#endif /* PIECESQTABLE */
-
-#ifndef ZOBRIST
-#define ZOBRIST
-
 #include "zobrist.h"
-
-#endif /* ZOBRIST */
-
-#ifndef NNUE
-#define NNUE
-
 #include "nnue.h"
-
-#endif /* NNUE */
 
 int material[8] = {0, 0, 3, 3, 5, 10, 0};
 

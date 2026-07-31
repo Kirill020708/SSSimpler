@@ -2,19 +2,8 @@
 
 #pragma once
 
-#ifndef MOVEGENLIST
-#define MOVEGENLIST
-
 #include "moveListGeneration.h"
-
-#endif /* MOVEGENLIST */
-
-#ifndef BOARD
-#define BOARD
-
 #include "board.h"
-
-#endif /* BOARD */
 
 MoveListGenerator moveListGeneratorForPerft;
 

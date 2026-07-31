@@ -2,19 +2,8 @@
 
 #pragma once
 
-#ifndef DECLARS
-#define DECLARS
-
 #include "declars.h"
-
-#endif /* DECLARS */
-
-#ifndef MOVE
-#define MOVE
-
 #include "move.h"
-
-#endif /* MOVE */
 
 struct HistoryHelper {
     int16_t historyScore[2][64][64][2][2];

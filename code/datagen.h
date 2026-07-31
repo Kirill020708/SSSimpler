@@ -1,9 +1,6 @@
-#ifndef SEARCHER
-#define SEARCHER
+#pragma once
 
 #include "searcher.h"
-
-#endif /* SEARCHER */
 
 #include <filesystem>
 

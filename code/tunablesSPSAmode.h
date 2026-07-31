@@ -1,3 +1,5 @@
+#pragma once
+
 int qsFPmargin = 100;
 int qsFPseeMargin = 0;
 int qsBetaFail = 512;

@@ -1,16 +1,7 @@
-#ifndef EVALUATOR
-#define EVALUATOR
+#pragma once
 
 #include "evaluation.h"
-
-#endif /* EVALUATOR */
-
-#ifndef SEARCHER
-#define SEARCHER
-
 #include "searcher.h"
-
-#endif /* SEARCHER */
 
 float rngF(float l, float r) {
     return (rng() % int(1e6)) / 1e6 * (r - l) - l;

@@ -1,12 +1,6 @@
 #pragma once
 
-#ifndef DECLARS
-#define DECLARS
-
 #include "declars.h"
-
-#endif
-
 #include <exception>
 #include <new>
 

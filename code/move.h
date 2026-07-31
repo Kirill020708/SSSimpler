@@ -2,12 +2,7 @@
 
 #pragma once
 
-#ifndef DECLARS
-#define DECLARS
-
 #include "declars.h"
-
-#endif /* DECLARS */
 
 struct Move {
     int16_t move = 0; // 0-5b: start, 6-11: end; 11-...:flag for promotion

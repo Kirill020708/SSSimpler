@@ -2,47 +2,12 @@
 
 #pragma once
 
-#ifndef MOVE
-#define MOVE
-
 #include "move.h"
-
-#endif /* MOVE */
-
-#ifndef MAGIC
-#define MAGIC
-
 #include "magicNumbers.h"
-
-#endif /* MAGIC */
-
-#ifndef MOVEGEN
-#define MOVEGEN
-
 #include "moveGeneration.h"
-
-#endif /* MOVEGEN */
-
-#ifndef BOARD
-#define BOARD
-
 #include "board.h"
-
-#endif /* BOARD */
-
-#ifndef PIECESQTABLE
-#define PIECESQTABLE
-
 #include "pieceSquareTable.h"
-
-#endif /* PIECESQTABLE */
-
-#ifndef HISTORY
-#define HISTORY
-
 #include "historyHelper.h"
-
-#endif /* HISTORY */
 
 const int maxListSize = 256;
 

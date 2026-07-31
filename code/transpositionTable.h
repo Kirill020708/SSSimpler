@@ -2,13 +2,7 @@
 
 #pragma once
 
-#ifndef DECLARS
-#define DECLARS
-
 #include "declars.h"
-
-#endif /* DECLARS */
-
 #include <cstdlib>
 #if defined(__linux__)
 #include <sys/mman.h>

@@ -2,12 +2,7 @@
 
 #pragma once
 
-#ifndef DECLARS
-#define DECLARS
-
 #include "declars.h"
-
-#endif /* DECLARS */
 
 struct Bitboard {
     ull bitboard = 0;

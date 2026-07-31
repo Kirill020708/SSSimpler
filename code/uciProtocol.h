@@ -2,47 +2,12 @@
 
 #pragma once
 
-#ifndef SEARCHER
-#define SEARCHER
-
 #include "searcher.h"
-
-#endif /* SEARCHER */
-
-#ifndef BOARD
-#define BOARD
-
-#include "mainBoard.h"
-
-#endif /* BOARD */
-
-#ifndef EVALUATOR
-#define EVALUATOR
-
+#include "board.h"
 #include "evaluation.h"
-
-#endif /* EVALUATOR */
-
-#ifndef PERFT
-#define PERFT
-
 #include "perft.h"
-
-#endif /* PERFT */
-
-#ifndef NNUE
-#define NNUE
-
 #include "nnue.h"
-
-#endif /* NNUE */
-
-#ifndef DATAGEN
-#define DATAGEN
-
 #include "datagen.h"
-
-#endif /* DATAGEN */
 
 #if defined TUNE_MODE
 #include "ucispsa.h"

@@ -2,12 +2,7 @@
 
 #pragma once
 
-#ifndef BITBOARD
-#define BITBOARD
-
 #include "bitboard.h"
-
-#endif /* BITBOARD */
 
 struct BoardHelper {
     Bitboard kingMoves[64], knightMoves[64];

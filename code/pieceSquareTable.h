@@ -2,12 +2,7 @@
 
 #pragma once
 
-#ifndef BOARDHELP
-#define BOARDHELP
-
 #include "boardHelper.h"
-
-#endif /* BOARDHELP */
 
 struct PieceSquareTable {
     int materialEval[7] = {0, 100, 300, 300, 500, 1000, 0};

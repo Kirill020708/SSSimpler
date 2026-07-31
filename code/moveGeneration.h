@@ -2,26 +2,9 @@
 
 #pragma once
 
-#ifndef BOARD
-#define BOARD
-
 #include "board.h"
-
-#endif /* BOARD */
-
-#ifndef BOARDHELP
-#define BOARDHELP
-
 #include "boardHelper.h"
-
-#endif /* BOARDHELP */
-
-#ifndef MAGIC
-#define MAGIC
-
 #include "magicNumbers.h"
-
-#endif /* MAGIC */
 
 struct MoveGeneration {
 

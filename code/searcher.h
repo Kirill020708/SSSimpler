@@ -2,40 +2,11 @@
 
 #pragma once
 
-#ifndef MOVEGENLIST
-#define MOVEGENLIST
-
 #include "moveListGeneration.h"
-
-#endif /* MOVEGENLIST */
-
-#ifndef BOARD
-#define BOARD
-
 #include "board.h"
-
-#endif /* BOARD */
-
-#ifndef EVALUATOR
-#define EVALUATOR
-
 #include "evaluation.h"
-
-#endif /* EVALUATOR */
-
-#ifndef TRANSPOSTABLE
-#define TRANSPOSTABLE
-
 #include "transpositionTable.h"
-
-#endif /* TRANSPOSTABLE */
-
-#ifndef HISTORY
-#define HISTORY
-
 #include "historyHelper.h"
-
-#endif /* HISTORY */
 
 struct StackState {
     bool excludeTTmove = false;

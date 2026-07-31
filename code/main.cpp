@@ -1,51 +1,10 @@
-#ifndef SEARCHER
-#define SEARCHER
-
 #include "searcher.h"
-
-#endif /* SEARCHER */
-
-#ifndef UCI
-#define UCI
-
 #include "uciProtocol.h"
-
-#endif /* UCI */
-
-#ifndef PERFT
-#define PERFT
-
 #include "perft.h"
-
-#endif /* PERFT */
-
-#ifndef TEXEL
-#define TEXEL
-
 #include "texel.h"
-
-#endif /* TEXEL */
-
-#ifndef NNUE
-#define NNUE
-
 #include "nnue.h"
-
-#endif /* NNUE */
-
-#ifndef DATAGEN
-#define DATAGEN
-
 #include "datagen.h"
-
-#endif /* DATAGEN */
-
-#ifndef BENCH
-#define BENCH
-
 #include "bench.h"
-
-#endif /* BENCH */
 
 string squareToString(int square) {
     return string(1, char((square & 7) + 'a')) + string(1, char(7 - (square >> 3) + '1'));
