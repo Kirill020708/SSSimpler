@@ -4,7 +4,8 @@ SSSimpler is a UCI chess engine with NNUE.
 ## Features
 Alpha-Beta search with a bunch of tweaks
 ## Evaluation
-Neural net, architecture is (768x8hm->1024)x2-pw->(16-dual->32-crelu->1)x(8x8).
+Neural net, architecture is (768x8hm->1024)x2-pw->(16-dual->32-crelu->1)x(8x8). \
+All data came from self-play.
 ## Building
 Just run `make`
 ## Strength
