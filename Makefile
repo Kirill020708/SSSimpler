@@ -1,7 +1,7 @@
 EXE ?= SSSimpler
 CXX ?= clang++
 
-USE_LIBNUMA ?= off
+USE_LIBNUMA ?= on
 NUMA_FLAGS :=
 ifeq ($(USE_LIBNUMA),on)
     NUMA_FLAGS := -DUSE_LIBNUMA -lnuma
