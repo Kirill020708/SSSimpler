@@ -82,7 +82,7 @@ struct UCIcommunicationHepler {
             // return;
         }
         if (mainCommand == "uci") {
-            cout << "id name Simpler 2.0.0" << endl;
+            cout << "id name SSSimpler 2.0.0" << endl;
             cout << "id author Kirill020708\n" << endl;
 
             cout << "option name HardNodesLimit type spin default 1000000000000000000 min 1 max 1000000000000000000" << endl;
@@ -114,7 +114,9 @@ struct UCIcommunicationHepler {
             evaluator.uciOutput = true;
             cout << evaluator.evaluatePositionDeterministic(mainBoard) << " cp (white's perspective)" << endl;
             mainBoard.initNNUE(mainNnueEvaluator);
-            int nnueEval = mainNnueEvaluator.evaluate(mainBoard.boardColor, mainBoard.getOutputBucket());
+            int outputBucket = mainBoard.getOutputBucket();
+            pair<int, int> buckets = mainBoard.getBuckets();
+            int nnueEval = mainNnueEvaluator.evaluate(mainBoard.boardColor, outputBucket);
             if (mainBoard.boardColor == BLACK)
                 nnueEval = -nnueEval;
             cout << nnueEval << " cp (NNUE, white's perspective)" << endl;
@@ -151,8 +153,8 @@ struct UCIcommunicationHepler {
                         cout << "     ";
                     else {
                         mainBoard.clearPosition(square, mainNnueEvaluator);
-                        mainBoard.initNNUE(mainNnueEvaluator);
-                        int newNnueEval = mainNnueEvaluator.evaluate(mainBoard.boardColor, mainBoard.getOutputBucket());
+                        mainBoard.initNNUE(mainNnueEvaluator, buckets);
+                        int newNnueEval = mainNnueEvaluator.evaluate(mainBoard.boardColor, outputBucket);
                         if (mainBoard.boardColor == BLACK)
                             newNnueEval = -newNnueEval;
                         newNnueEval = normalizeNNUEscore(newNnueEval, mainBoard.getNormalizeMaterial());
@@ -203,25 +205,25 @@ struct UCIcommunicationHepler {
             ull nodesh = 1e18;
             for (int i = 1; i < tokens.size(); i++) {
                 if (tokens[i] == "wtime")
-                    wtime = stoi(tokens[i + 1]);
+                    wtime = stoll(tokens[i + 1]);
                 if (tokens[i] == "btime")
-                    btime = stoi(tokens[i + 1]);
+                    btime = stoll(tokens[i + 1]);
                 if (tokens[i] == "winc")
-                    winc = stoi(tokens[i + 1]);
+                    winc = stoll(tokens[i + 1]);
                 if (tokens[i] == "binc")
-                    binc = stoi(tokens[i + 1]);
+                    binc = stoll(tokens[i + 1]);
 
                 if (tokens[i] == "movetime")
-                    movetime = stoi(tokens[i + 1]);
+                    movetime = stoll(tokens[i + 1]);
 
                 if (tokens[i] == "depth")
-                    depth = stoi(tokens[i + 1]);
+                    depth = stoll(tokens[i + 1]);
 
                 if (tokens[i] == "nodes")
-                    nodes = stoi(tokens[i + 1]);
+                    nodes = stoll(tokens[i + 1]);
 
                 if (tokens[i] == "nodesh")
-                    nodesh = stoi(tokens[i + 1]);
+                    nodesh = stoll(tokens[i + 1]);
             }
             int timeToThink = 1e9;
             int basetime = 0;
@@ -266,14 +268,14 @@ struct UCIcommunicationHepler {
             searchListenerCondVar.notify_one();
         }
         if (mainCommand == "perft") {
-            perftester.perfTest(stoi(tokens[1]));
+            perftester.perfTest(stoll(tokens[1]));
         }
         if (mainCommand == "stop") {
             stopSearch();
         }
         if (mainCommand == "setoption") {
             if (tokens[2] == "HardNodesLimit") {
-                hardNodesOpt = stoi(tokens[4]);
+                hardNodesOpt = stoll(tokens[4]);
                 return;
             }
             if (tokens[2] == "Normalize") {
@@ -289,15 +291,15 @@ struct UCIcommunicationHepler {
                     searcher.minimal = false;
             }
             if (tokens[2] == "Threads") {
-                int thn = stoi(tokens[4]);
+                int thn = stoll(tokens[4]);
                 searcher.setThreads(thn);
             }
             if (tokens[2] == "Hash") {
-                int sz = stoi(tokens[4]);
+                int sz = stoll(tokens[4]);
                 reallocateHashMemory(sz);
             }
             #if defined TUNE_MODE
-            setParam(tokens[2], stoi(tokens[4]));
+            setParam(tokens[2], stoll(tokens[4]));
             #endif
         }
         if (mainCommand == "ucinewgame") {
@@ -312,27 +314,27 @@ struct UCIcommunicationHepler {
             int gamesNumber = 1;
             for (int i = 1; i < tokens.size(); i++) {
                 if (tokens[i] == "softnodes")
-                    dataGenerator.softNodesLimit = stoi(tokens[i + 1]);
+                    dataGenerator.softNodesLimit = stoll(tokens[i + 1]);
                 if (tokens[i] == "hardnodes")
-                    dataGenerator.hardNodesLimit = stoi(tokens[i + 1]);
+                    dataGenerator.hardNodesLimit = stoll(tokens[i + 1]);
                 if (tokens[i] == "threads")
-                    dataGenerator.threadNumber = stoi(tokens[i + 1]);
+                    dataGenerator.threadNumber = stoll(tokens[i + 1]);
                 if (tokens[i] == "id")
-                    dataGenerator.workerId = stoi(tokens[i + 1]);
+                    dataGenerator.workerId = stoll(tokens[i + 1]);
                 if (tokens[i] == "seed")
-                    dataGenerator.seed = stoi(tokens[i + 1]);
+                    dataGenerator.seed = stoll(tokens[i + 1]);
                 if (tokens[i] == "games")
-                    gamesNumber = stoi(tokens[i + 1]);
+                    gamesNumber = stoll(tokens[i + 1]);
                 if (tokens[i] == "resignMoveCount")
-                    dataGenerator.resignMoveCount = stoi(tokens[i + 1]);
+                    dataGenerator.resignMoveCount = stoll(tokens[i + 1]);
                 if (tokens[i] == "resignScore")
-                    dataGenerator.resignScore = stoi(tokens[i + 1]);
+                    dataGenerator.resignScore = stoll(tokens[i + 1]);
                 if (tokens[i] == "drawMoveCount")
-                    dataGenerator.drawMoveCount = stoi(tokens[i + 1]);
+                    dataGenerator.drawMoveCount = stoll(tokens[i + 1]);
                 if (tokens[i] == "minDrawMoveCount")
-                    dataGenerator.minDrawMoveCount = stoi(tokens[i + 1]);
+                    dataGenerator.minDrawMoveCount = stoll(tokens[i + 1]);
                 if (tokens[i] == "drawScore")
-                    dataGenerator.drawScore = stoi(tokens[i + 1]);
+                    dataGenerator.drawScore = stoll(tokens[i + 1]);
                 if (tokens[i] == "outputDir")
                     dataGenerator.outputDir = (tokens[i + 1]);
             }

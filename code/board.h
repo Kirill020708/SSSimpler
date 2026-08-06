@@ -453,6 +453,18 @@ struct alignas(64) Board {
         }
     }
 
+    void initNNUE(NNUEevaluator &nnueEvaluator, pair<int, int> buckets) {
+        nnueEvaluator.ply = 0;
+        nnueEvaluator.clear(0);
+        nnueEvaluator.bucketsStack[0] = buckets;
+        for (int square = 0; square < 64; square++) {
+            int piece = occupancyPiece(square);
+            int pieceColor = occupancy(square);
+            if (pieceColor != EMPTY)
+                nnueEvaluator.Add(0, getNNUEidx(square, piece, pieceColor), buckets);
+        }
+    }
+
     inline void makeMove(Move move, NNUEevaluator &nnueEvaluator) {
         if ((whitePieces | blackPieces).getBit(move.getTargetSquare()) ||
             pawns.getBit(move.getStartSquare())) { // check if move is irreversible
