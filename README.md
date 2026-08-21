@@ -9,7 +9,7 @@ All data came from self-play.
 ## Building
 Just run `make`
 ## Strength
-CCRL Rapid rating — 3534, #51 in the single-CPU list
+CCRL Rapid rating — 3534, #51 in the single-CPU list \
 estimated 3650 CCRL blitz
 ## License
 The code is licensed under the GPLv3 license. Full text can be found in LICENSE in the project root.
